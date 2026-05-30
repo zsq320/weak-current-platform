@@ -1,0 +1,33 @@
+@echo off
+chcp 936 >nul 2>&1
+cd /d "%~dp0"
+title Public Mode
+
+echo ========================================
+echo   Public Mode
+echo ========================================
+echo.
+
+echo Checking port 3000...
+for /f "tokens=5" %%a in ('netstat -ano ^| findstr :3000 ^| findstr LISTENING') do (
+    echo Killing process on port 3000...
+    taskkill /F /PID %%a >nul 2>&1
+    timeout /t 1 /nobreak >nul
+)
+
+echo [1/2] Building frontend...
+cd client
+call npx vite build
+if errorlevel 1 (
+    echo Build failed!
+    pause
+    exit /b 1
+)
+cd ..
+
+echo.
+echo [2/2] Starting server...
+echo.
+
+node server/start-public.js
+pause

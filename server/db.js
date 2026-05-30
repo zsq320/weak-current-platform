@@ -1,0 +1,103 @@
+const Database = require('better-sqlite3');
+const path = require('path');
+
+const dbPath = path.join(__dirname, '..', 'data.db');
+const db = new Database(dbPath);
+
+db.pragma('journal_mode = WAL');
+db.pragma('foreign_keys = ON');
+
+// 初始化表
+db.exec(`
+  CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    role TEXT NOT NULL DEFAULT 'user' CHECK(role IN ('user', 'engineer', 'admin')),
+    real_name TEXT,
+    phone TEXT,
+    email TEXT,
+    certification TEXT,
+    certification_status TEXT DEFAULT 'none' CHECK(certification_status IN ('none', 'pending', 'approved', 'rejected')),
+    balance REAL DEFAULT 0,
+    avatar TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS projects (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    description TEXT,
+    category TEXT NOT NULL,
+    location TEXT,
+    budget REAL,
+    status TEXT DEFAULT 'pending' CHECK(status IN ('pending', 'bidding', 'in_progress', 'completed', 'cancelled')),
+    deadline TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS bids (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id INTEGER NOT NULL,
+    engineer_id INTEGER NOT NULL,
+    price REAL NOT NULL,
+    message TEXT,
+    status TEXT DEFAULT 'pending' CHECK(status IN ('pending', 'accepted', 'rejected')),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (project_id) REFERENCES projects(id),
+    FOREIGN KEY (engineer_id) REFERENCES users(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS contracts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id INTEGER NOT NULL,
+    bid_id INTEGER NOT NULL,
+    owner_id INTEGER NOT NULL,
+    engineer_id INTEGER NOT NULL,
+    amount REAL NOT NULL,
+    status TEXT DEFAULT 'active' CHECK(status IN ('active', 'completed', 'terminated')),
+    signed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    completed_at DATETIME,
+    FOREIGN KEY (project_id) REFERENCES projects(id),
+    FOREIGN KEY (bid_id) REFERENCES bids(id),
+    FOREIGN KEY (owner_id) REFERENCES users(id),
+    FOREIGN KEY (engineer_id) REFERENCES users(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS reviews (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    contract_id INTEGER NOT NULL,
+    from_user_id INTEGER NOT NULL,
+    to_user_id INTEGER NOT NULL,
+    rating INTEGER NOT NULL CHECK(rating BETWEEN 1 AND 5),
+    comment TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (contract_id) REFERENCES contracts(id),
+    FOREIGN KEY (from_user_id) REFERENCES users(id),
+    FOREIGN KEY (to_user_id) REFERENCES users(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    from_user_id INTEGER,
+    to_user_id INTEGER NOT NULL,
+    title TEXT,
+    content TEXT NOT NULL,
+    type TEXT DEFAULT 'system' CHECK(type IN ('system', 'project', 'bid', 'contract')),
+    is_read INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (from_user_id) REFERENCES users(id),
+    FOREIGN KEY (to_user_id) REFERENCES users(id)
+  );
+`);
+
+// 迁移：添加 is_disabled 字段
+try {
+  db.prepare("SELECT is_disabled FROM users LIMIT 1").get();
+} catch (e) {
+  db.exec("ALTER TABLE users ADD COLUMN is_disabled INTEGER DEFAULT 0");
+}
+
+module.exports = db;
