@@ -55,21 +55,37 @@
 
 ## 快速开始
 
-### 1. 配置环境变量
+### 方式一：Docker 部署（推荐）
+
+```bash
+# 1. 配置环境变量
+cp .env.docker .env
+
+# 2. 构建并启动
+docker-compose up -d
+
+# 3. 访问 http://localhost:3000
+```
+
+> 详细说明请查看 [DEPLOYMENT.md](DEPLOYMENT.md)
+
+### 方式二：手动部署
+
+#### 1. 配置环境变量
 
 ```bash
 cp .env.example .env
 # 编辑 .env 填写 SMTP 配置（用于发送邮箱验证码）
 ```
 
-### 2. 安装依赖
+#### 2. 安装依赖
 
 ```bash
 npm install
 cd client && npm install
 ```
 
-### 3. 启动服务
+#### 3. 启动服务
 
 ```bash
 # 开发模式（前后端同时启动）
@@ -79,7 +95,7 @@ npm run dev
 npm start
 ```
 
-### 4. Windows 快速启动
+#### 4. Windows 快速启动
 
 双击 `start.bat` 即可
 

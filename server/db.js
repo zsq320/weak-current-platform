@@ -10,7 +10,16 @@
 const Database = require('better-sqlite3');
 const path = require('path');
 
-const dbPath = path.join(__dirname, '..', 'data.db');
+// 支持从环境变量读取数据库路径，默认为项目根目录
+const dbPath = process.env.DB_PATH || path.join(__dirname, '..', 'data.db');
+
+// 确保数据库目录存在
+const dbDir = path.dirname(dbPath);
+const fs = require('fs');
+if (!fs.existsSync(dbDir)) {
+  fs.mkdirSync(dbDir, { recursive: true });
+}
+
 const db = new Database(dbPath);
 
 db.pragma('journal_mode = WAL');

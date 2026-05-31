@@ -1,0 +1,52 @@
+# Git
+.git
+.gitignore
+
+# 依赖
+node_modules
+client/node_modules
+
+# 构建输出（会重新构建）
+client/dist
+
+# 数据库文件
+*.db
+*.db-shm
+*.db-wal
+
+# 日志
+*.log
+logs
+
+# 环境变量（敏感信息）
+.env
+.env.local
+.env.*.local
+
+# 编辑器配置
+.vscode
+.idea
+*.swp
+*.swo
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# ngrok 相关
+ngrok.exe
+ngrok.zip
+ngrok-token.txt
+ngrok-domain.txt
+
+# 临时文件
+*.tmp
+*.temp
+
+# 说明文档（不需要运行时）
+*.md
+LICENSE
+README.md
+
+# 批处理文件（Windows 特有）
+*.bat

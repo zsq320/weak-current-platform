@@ -8,8 +8,12 @@
 // NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
 // See the Mulan PSL v2 for more details.
 
-// 加载环境变量
-require('dotenv').config();
+// 加载环境变量（Docker 环境中已通过环境变量注入，此步骤可选）
+try {
+  require('dotenv').config();
+} catch (e) {
+  // dotenv 未安装或加载失败，忽略
+}
 
 const express = require('express');
 const cors = require('cors');
