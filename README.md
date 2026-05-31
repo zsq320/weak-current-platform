@@ -23,6 +23,17 @@
 - 验证码频率限制
 - 审计日志记录
 
+### 安全特性
+- **JWT 双令牌机制**：访问令牌(1小时) + 刷新令牌(7天)
+- **令牌黑名单**：登出后令牌立即失效
+- **敏感数据加密**：AES-256-GCM 加密存储身份证、银行卡
+- **数据脱敏**：手机号、邮箱对外脱敏显示
+- **登录限流**：防暴力破解（15分钟10次）
+- **API 限流**：全局限流保护
+- **安全 HTTP 头**：Helmet 防护
+- **CORS 白名单**：限制跨域来源
+- **SQL 注入防护**：参数化查询
+
 ## 技术栈
 
 **前端**
@@ -34,8 +45,11 @@
 **后端**
 - Node.js + Express
 - SQLite (better-sqlite3)
-- JWT 认证
+- JWT 认证（双令牌机制）
 - bcryptjs 密码加密
+- AES-256-GCM 敏感数据加密
+- helmet 安全头
+- express-rate-limit 限流
 - nodemailer 邮件发送
 
 ## 快速开始
@@ -98,6 +112,31 @@ npm start
 - `POST /api/auth/register` - 注册（需验证码）
 - `POST /api/auth/login` - 账号密码登录
 - `POST /api/auth/login/phone` - 手机验证码登录
+- `POST /api/auth/refresh` - 刷新访问令牌
+- `POST /api/auth/logout` - 登出（令牌失效）
+- `GET /api/auth/me` - 获取当前用户信息（脱敏）
+- `POST /api/auth/sensitive` - 保存敏感信息（加密）
+- `GET /api/auth/sensitive` - 获取敏感信息（脱敏）
+
+## 部署说明
+
+### 生产环境配置
+
+1. **必须配置的环境变量**：
+```bash
+JWT_SECRET=<随机生成的64位字符串>
+ENCRYPTION_KEY=<随机生成的32位字符串>
+NODE_ENV=production
+```
+
+2. **生成密钥命令**：
+```bash
+node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
+```
+
+3. **生成的用户数据脱敏示例**：
+- 手机号：13812345678 → 138****5678
+- 邮箱：zhangsan@example.com → z****n@example.com
 
 ## 许可证
 
