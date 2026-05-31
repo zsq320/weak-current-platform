@@ -1,9 +1,47 @@
 <template>
   <div class="home">
-    <div class="hero">
+    <div class="hero" :class="{ 'hero-admin': isAdmin }">
       <h1>弱电工程管理平台</h1>
       <p>连接工程需求方与专业工程师，让弱电工程更高效</p>
-      <div class="stats-bar">
+
+      <!-- 管理员统计（更多数据） -->
+      <div v-if="isAdmin" class="stats-bar admin-stats">
+        <div class="stat">
+          <span class="num">{{ globalStats.total_users || 0 }}</span>
+          <span class="label">注册用户</span>
+        </div>
+        <div class="stat">
+          <span class="num">{{ globalStats.total_clients || 0 }}</span>
+          <span class="label">甲方用户</span>
+        </div>
+        <div class="stat">
+          <span class="num">{{ globalStats.total_engineers || 0 }}</span>
+          <span class="label">认证工程师</span>
+        </div>
+        <div class="stat">
+          <span class="num">{{ globalStats.total_projects || 0 }}</span>
+          <span class="label">工程项目</span>
+        </div>
+        <div class="stat">
+          <span class="num">{{ globalStats.bidding_projects || 0 }}</span>
+          <span class="label">招标中</span>
+        </div>
+        <div class="stat">
+          <span class="num">{{ globalStats.total_contracts || 0 }}</span>
+          <span class="label">合同总数</span>
+        </div>
+        <div class="stat">
+          <span class="num">{{ globalStats.active_contracts || 0 }}</span>
+          <span class="label">履行中</span>
+        </div>
+        <div class="stat">
+          <span class="num">{{ globalStats.pending_certs || 0 }}</span>
+          <span class="label">待审批</span>
+        </div>
+      </div>
+
+      <!-- 普通用户/未登录统计 -->
+      <div v-else class="stats-bar">
         <div class="stat">
           <span class="num">{{ isLoggedIn ? (globalStats.total_projects || 0) : '***' }}</span>
           <span class="label">工程项目</span>
@@ -21,9 +59,14 @@
           <span class="label">完成合同</span>
         </div>
       </div>
+
       <div v-if="!isLoggedIn" class="login-hint">
         <el-button type="primary" @click="router.push('/login')">登录 / 注册</el-button>
         <span class="hint-text">登录后查看详细数据</span>
+      </div>
+      <div v-else-if="isAdmin" class="admin-hint">
+        <el-button type="warning" @click="router.push('/admin')">进入管理后台</el-button>
+        <span class="hint-text">查看更多详细数据和管理功能</span>
       </div>
     </div>
 
@@ -76,6 +119,7 @@ const router = useRouter()
 const userStore = useUserStore()
 
 const isLoggedIn = computed(() => userStore.isLoggedIn)
+const isAdmin = computed(() => userStore.isAdmin)
 
 const categories = ['安防监控', '网络布线', '门禁系统', '楼宇对讲', '停车场系统', '广播系统', '综合布线', '其他']
 const projects = ref([])
@@ -110,31 +154,98 @@ onMounted(() => {
 <style scoped>
 .hero {
   text-align: center;
-  padding: 40px 20px;
+  padding: 48px 24px;
   background: linear-gradient(135deg, #409eff, #67c23a);
   color: #fff;
-  border-radius: 12px;
-  margin-bottom: 24px;
+  border-radius: 20px;
+  margin-bottom: 32px;
+  box-shadow: 0 8px 32px rgba(64, 158, 255, 0.3);
 }
-.hero h1 { font-size: 32px; margin-bottom: 8px; }
-.hero p { font-size: 16px; opacity: 0.9; margin-bottom: 24px; }
-.stats-bar { display: flex; justify-content: center; gap: 48px; }
-.stat { display: flex; flex-direction: column; }
-.stat .num { font-size: 28px; font-weight: bold; }
-.stat .label { font-size: 13px; opacity: 0.8; }
 
-.login-hint {
-  margin-top: 20px;
+.hero-admin {
+  background: linear-gradient(135deg, #303133, #409eff);
+  padding-bottom: 36px;
+}
+
+.hero h1 {
+  font-size: 36px;
+  font-weight: 700;
+  margin-bottom: 12px;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.hero p {
+  font-size: 18px;
+  opacity: 0.9;
+  margin-bottom: 32px;
+}
+
+.stats-bar {
+  display: flex;
+  justify-content: center;
+  gap: 40px;
+  flex-wrap: wrap;
+}
+
+.admin-stats {
+  gap: 24px;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px 20px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  min-width: 100px;
+  backdrop-filter: blur(10px);
+  transition: transform 0.2s;
+}
+
+.stat:hover {
+  transform: translateY(-2px);
+}
+
+.stat .num {
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.stat .label {
+  font-size: 14px;
+  opacity: 0.85;
+  margin-top: 4px;
+}
+
+.login-hint,
+.admin-hint {
+  margin-top: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 16px;
 }
+
 .hint-text {
-  color: rgba(255,255,255,0.8);
-  font-size: 14px;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 15px;
 }
 
-.filters { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
-.project-list { min-height: 200px; }
+.filters {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.project-list {
+  min-height: 200px;
+}
+
+:deep(.el-input__wrapper),
+:deep(.el-select__wrapper) {
+  border-radius: 10px;
+}
 </style>

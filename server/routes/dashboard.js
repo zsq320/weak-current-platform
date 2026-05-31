@@ -9,7 +9,7 @@
 // See the Mulan PSL v2 for more details.
 const express = require('express');
 const db = require('../db');
-const { authMiddleware, requireRole } = require('../middleware/auth');
+const { authMiddleware, optionalAuth, requireRole } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -86,12 +86,13 @@ router.get('/stats', authMiddleware, (req, res) => {
   res.json(stats);
 });
 
-// 全局统计（未登录用户返回模糊数据）
-router.get('/global', (req, res) => {
+// 全局统计（未登录用户返回模糊数据，管理员返回完整数据）
+router.get('/global', optionalAuth, (req, res) => {
   const total_projects = db.prepare('SELECT COUNT(*) as count FROM projects').get().count;
   const total_users = db.prepare('SELECT COUNT(*) as count FROM users').get().count;
-  const total_engineers = db.prepare("SELECT COUNT(*) as count FROM users WHERE role = 'engineer'").get().count;
+  const total_engineers = db.prepare("SELECT COUNT(*) as count FROM users WHERE role = 'engineer' OR certification_status = 'approved'").get().count;
   const total_contracts = db.prepare('SELECT COUNT(*) as count FROM contracts').get().count;
+  const total_amount = db.prepare("SELECT COALESCE(SUM(amount), 0) as total FROM contracts WHERE status = 'completed'").get().total;
 
   const by_category = db.prepare('SELECT category, COUNT(*) as count FROM projects GROUP BY category ORDER BY count DESC').all();
 
@@ -101,19 +102,46 @@ router.get('/global', (req, res) => {
     GROUP BY month ORDER BY month DESC LIMIT 6
   `).all();
 
-  // 未登录用户返回模糊数据（隐藏精确数字）
+  // 判断用户权限
   const isLoggedIn = !!req.user;
+  const isAdmin = req.user?.role === 'admin';
 
-  res.json({
-    total_projects: isLoggedIn ? total_projects : '***',
-    total_users: isLoggedIn ? total_users : '***',
-    total_engineers: isLoggedIn ? total_engineers : '***',
-    total_contracts: isLoggedIn ? total_contracts : '***',
-    total_amount: isLoggedIn ? (db.prepare("SELECT SUM(amount) as total FROM contracts WHERE status = 'completed'").get().total || 0) : '***',
-    by_category: isLoggedIn ? by_category : [],
-    monthly: isLoggedIn ? monthly.reverse() : [],
-    show_details: isLoggedIn
-  });
+  // 管理员返回完整详细数据
+  if (isAdmin) {
+    const total_clients = db.prepare("SELECT COUNT(*) as count FROM users WHERE role = 'user'").get().count;
+    const pending_certs = db.prepare("SELECT COUNT(*) as count FROM users WHERE certification_status = 'pending'").get().count;
+    const active_contracts = db.prepare("SELECT COUNT(*) as count FROM contracts WHERE status = 'active'").get().count;
+    const bidding_projects = db.prepare("SELECT COUNT(*) as count FROM projects WHERE status = 'bidding'").get().count;
+
+    res.json({
+      total_projects,
+      total_users,
+      total_engineers,
+      total_clients,
+      total_contracts,
+      total_amount,
+      pending_certs,
+      active_contracts,
+      bidding_projects,
+      by_category,
+      monthly: monthly.reverse(),
+      show_details: true,
+      is_admin: true
+    });
+  } else {
+    // 普通登录用户或未登录用户
+    res.json({
+      total_projects: isLoggedIn ? total_projects : '***',
+      total_users: isLoggedIn ? total_users : '***',
+      total_engineers: isLoggedIn ? total_engineers : '***',
+      total_contracts: isLoggedIn ? total_contracts : '***',
+      total_amount: isLoggedIn ? total_amount : '***',
+      by_category: isLoggedIn ? by_category : [],
+      monthly: isLoggedIn ? monthly.reverse() : [],
+      show_details: isLoggedIn,
+      is_admin: false
+    });
+  }
 });
 
 module.exports = router;
