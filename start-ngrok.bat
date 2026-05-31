@@ -1,5 +1,4 @@
 @echo off
-chcp 936 >nul 2>&1
 cd /d "%~dp0"
 title Ngrok Mode
 
@@ -15,28 +14,26 @@ if not exist ngrok-token.txt (
     exit /b 1
 )
 
-echo Checking port 3000...
-for /f "tokens=5" %%a in ('netstat -ano ^| findstr :3000 ^| findstr LISTENING') do (
-    echo Killing process on port 3000...
-    taskkill /F /PID %%a >nul 2>&1
-    timeout /t 1 /nobreak >nul
+echo Stopping any process on port 3000...
+for /f "tokens=1-5" %%a in ('netstat -ano 2^>/dev/null ^| findstr ":3000"') do (
+    taskkill /F /PID %%a >/dev/null 2>&1
 )
 
+echo.
 echo [1/2] Building frontend...
-cd client
+cd /d "%~dp0client"
 call npx vite build
 if errorlevel 1 (
     echo Build failed!
     pause
     exit /b 1
 )
-cd ..
+cd /d "%~dp0"
 
 echo.
 echo [2/2] Starting server and ngrok...
 echo.
 
-rem 设置环境变量
 set NODE_ENV=production
 set JWT_SECRET=weak-platform-jwt-secret-key-2026-very-long
 set ENCRYPTION_KEY=encryption-key-for-data-32bytes-long

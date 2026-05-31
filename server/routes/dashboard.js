@@ -86,13 +86,12 @@ router.get('/stats', authMiddleware, (req, res) => {
   res.json(stats);
 });
 
-// 全局统计
+// 全局统计（未登录用户返回模糊数据）
 router.get('/global', (req, res) => {
   const total_projects = db.prepare('SELECT COUNT(*) as count FROM projects').get().count;
   const total_users = db.prepare('SELECT COUNT(*) as count FROM users').get().count;
   const total_engineers = db.prepare("SELECT COUNT(*) as count FROM users WHERE role = 'engineer'").get().count;
   const total_contracts = db.prepare('SELECT COUNT(*) as count FROM contracts').get().count;
-  const total_amount = db.prepare("SELECT SUM(amount) as total FROM contracts WHERE status = 'completed'").get().total || 0;
 
   const by_category = db.prepare('SELECT category, COUNT(*) as count FROM projects GROUP BY category ORDER BY count DESC').all();
 
@@ -102,7 +101,19 @@ router.get('/global', (req, res) => {
     GROUP BY month ORDER BY month DESC LIMIT 6
   `).all();
 
-  res.json({ total_projects, total_users, total_engineers, total_contracts, total_amount, by_category, monthly: monthly.reverse() });
+  // 未登录用户返回模糊数据（隐藏精确数字）
+  const isLoggedIn = !!req.user;
+
+  res.json({
+    total_projects: isLoggedIn ? total_projects : '***',
+    total_users: isLoggedIn ? total_users : '***',
+    total_engineers: isLoggedIn ? total_engineers : '***',
+    total_contracts: isLoggedIn ? total_contracts : '***',
+    total_amount: isLoggedIn ? (db.prepare("SELECT SUM(amount) as total FROM contracts WHERE status = 'completed'").get().total || 0) : '***',
+    by_category: isLoggedIn ? by_category : [],
+    monthly: isLoggedIn ? monthly.reverse() : [],
+    show_details: isLoggedIn
+  });
 });
 
 module.exports = router;
