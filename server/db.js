@@ -171,4 +171,48 @@ try {
   db.exec("ALTER TABLE users ADD COLUMN bank_card_encrypted TEXT");
 }
 
+// 项目任务表
+db.exec(`
+  CREATE TABLE IF NOT EXISTS project_tasks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    description TEXT,
+    assignee_id INTEGER,
+    start_date TEXT,
+    end_date TEXT,
+    status TEXT DEFAULT 'pending' CHECK(status IN ('pending', 'in_progress', 'completed', 'cancelled')),
+    progress INTEGER DEFAULT 0 CHECK(progress >= 0 AND progress <= 100),
+    priority TEXT DEFAULT 'normal' CHECK(priority IN ('low', 'normal', 'high', 'urgent')),
+    sort_order INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+    FOREIGN KEY (assignee_id) REFERENCES users(id)
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_tasks_project ON project_tasks(project_id);
+  CREATE INDEX IF NOT EXISTS idx_tasks_assignee ON project_tasks(assignee_id);
+  CREATE INDEX IF NOT EXISTS idx_tasks_status ON project_tasks(status);
+`);
+
+// 项目里程碑表
+db.exec(`
+  CREATE TABLE IF NOT EXISTS project_milestones (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    description TEXT,
+    due_date TEXT,
+    status TEXT DEFAULT 'pending' CHECK(status IN ('pending', 'in_progress', 'completed', 'delayed')),
+    sort_order INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_milestones_project ON project_milestones(project_id);
+  CREATE INDEX IF NOT EXISTS idx_milestones_status ON project_milestones(status);
+`);
+
 module.exports = db;

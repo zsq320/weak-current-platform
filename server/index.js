@@ -88,6 +88,8 @@ app.use('/api/verification', verificationLimiter, require('./routes/verification
 
 // 业务 API（一般限制）
 app.use('/api/projects', apiLimiter, require('./routes/projects'));
+app.use('/api/projects/:projectId/tasks', apiLimiter, require('./routes/tasks'));
+app.use('/api/projects/:projectId/milestones', apiLimiter, require('./routes/milestones'));
 app.use('/api/bids', apiLimiter, require('./routes/bids'));
 app.use('/api/contracts', apiLimiter, require('./routes/contracts'));
 app.use('/api/reviews', apiLimiter, require('./routes/reviews'));

@@ -98,14 +98,36 @@ router.post('/', authMiddleware, requireRole('user'), (req, res) => {
 router.put('/:id', authMiddleware, (req, res) => {
   const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(Number(req.params.id));
   if (!project) return res.status(404).json({ error: '工程不存在' });
-  if (project.user_id !== req.user.id) return res.status(403).json({ error: '无权修改此工程' });
-  if (project.status !== 'pending' && project.status !== 'bidding') {
-    return res.status(400).json({ error: '工程已开始，无法修改' });
+
+  const isOwner = project.user_id === req.user.id;
+  const isAdmin = req.user.role === 'admin';
+  if (!isOwner && !isAdmin) return res.status(403).json({ error: '无权修改此工程' });
+
+  const { title, description, category, location, budget, deadline, status } = req.body;
+
+  // 如果有状态更新，验证状态转换
+  if (status && status !== project.status) {
+    const validTransitions = {
+      'bidding': ['in_progress', 'cancelled'],
+      'in_progress': ['completed', 'cancelled'],
+      'pending': ['bidding', 'cancelled']
+    };
+    const allowed = validTransitions[project.status] || [];
+    if (!allowed.includes(status)) {
+      return res.status(400).json({ error: `无法从"${project.status}"状态转换到"${status}"状态` });
+    }
+
+    db.prepare('UPDATE projects SET status = ? WHERE id = ?').run(status, Number(req.params.id));
+    logAudit(req.user.id, 'update_project_status', 'project', project.id, { from: project.status, to: status }, req.ip);
   }
 
-  const { title, description, category, location, budget, deadline } = req.body;
-  db.prepare('UPDATE projects SET title=?, description=?, category=?, location=?, budget=?, deadline=? WHERE id=?')
-    .run(title, description, category, location, budget, deadline, Number(req.params.id));
+  // 更新其他字段（仅在 pending/bidding 状态下允许）
+  if (project.status === 'pending' || project.status === 'bidding') {
+    if (title || description !== undefined || category || location || budget !== undefined || deadline) {
+      db.prepare('UPDATE projects SET title=COALESCE(?,title), description=COALESCE(?,description), category=COALESCE(?,category), location=COALESCE(?,location), budget=COALESCE(?,budget), deadline=COALESCE(?,deadline) WHERE id=?')
+        .run(title || null, description, category || null, location || null, budget, deadline || null, Number(req.params.id));
+    }
+  }
 
   res.json({ message: '工程更新成功' });
 });
