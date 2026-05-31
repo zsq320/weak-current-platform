@@ -269,6 +269,8 @@ router.get('/stats', (req, res) => {
   const total_contracts = db.prepare('SELECT COUNT(*) as count FROM contracts').get().count;
   const total_revenue = db.prepare("SELECT COALESCE(SUM(amount), 0) as total FROM contracts WHERE status = 'completed'").get().total;
   const pending_certs = db.prepare("SELECT COUNT(*) as count FROM users WHERE certification_status = 'pending'").get().count;
+  const total_engineers = db.prepare("SELECT COUNT(*) as count FROM users WHERE role = 'engineer' OR certification_status = 'approved'").get().count;
+  const total_clients = db.prepare("SELECT COUNT(*) as count FROM users WHERE role = 'user'").get().count;
 
   // 按角色统计用户
   const users_by_role = db.prepare('SELECT role, COUNT(*) as count FROM users GROUP BY role').all();
@@ -295,6 +297,7 @@ router.get('/stats', (req, res) => {
 
   res.json({
     total_users, total_projects, total_contracts, total_revenue, pending_certs,
+    total_engineers, total_clients,
     users_by_role, projects_by_status, contracts_by_status, monthly_revenue, recent_activity
   });
 });

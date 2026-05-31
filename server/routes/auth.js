@@ -570,4 +570,45 @@ router.post('/change-password', authMiddleware, (req, res) => {
   res.json({ message: '密码修改成功' });
 });
 
+// 头像上传配置
+const avatarUploadDir = path.join(__dirname, '../uploads/avatars');
+if (!fs.existsSync(avatarUploadDir)) {
+  fs.mkdirSync(avatarUploadDir, { recursive: true });
+}
+
+const avatarStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, avatarUploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, 'avatar-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const avatarUpload = multer({
+  storage: avatarStorage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  fileFilter: (req, file, cb) => {
+    // 允许所有图片格式
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('只允许上传图片文件'));
+    }
+  }
+});
+
+// 上传头像
+router.post('/avatar', authMiddleware, avatarUpload.single('avatar'), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: '请选择要上传的图片' });
+  }
+
+  const avatarPath = '/uploads/avatars/' + req.file.filename;
+  db.prepare('UPDATE users SET avatar = ? WHERE id = ?').run(avatarPath, req.user.id);
+
+  res.json({ message: '头像上传成功', avatar: avatarPath });
+});
+
 module.exports = router;

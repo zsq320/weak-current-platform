@@ -1,24 +1,36 @@
 <template>
-  <div>
+  <div class="profile-container">
     <el-row :gutter="24">
       <el-col :span="8">
-        <el-card>
+        <el-card class="profile-card">
           <template #header><h3>个人信息</h3></template>
           <div class="user-card">
-            <el-avatar :size="80" :icon="UserFilled" />
+            <div class="avatar-wrapper">
+              <el-avatar :size="100" :src="userStore.user?.avatar ? api.defaults.baseURL + userStore.user.avatar : ''" :icon="UserFilled" />
+              <el-upload
+                class="avatar-uploader"
+                action="#"
+                :auto-upload="false"
+                :show-file-list="false"
+                accept="image/*"
+                :on-change="handleAvatarChange"
+              >
+                <el-icon class="avatar-uploader-icon"><Camera /></el-icon>
+              </el-upload>
+            </div>
             <h3>{{ userStore.user?.real_name || userStore.user?.username }}</h3>
             <div class="tags-row">
-              <el-tag>{{ { user: '甲方', engineer: '工程师', admin: '管理员' }[userStore.user?.role] }}</el-tag>
+              <el-tag effect="dark">{{ { user: '甲方', engineer: '工程师', admin: '管理员' }[userStore.user?.role] }}</el-tag>
               <!-- 实名认证状态 -->
-              <el-tag v-if="verificationStatus.is_verified" type="success">
+              <el-tag v-if="verificationStatus.is_verified" type="success" effect="dark">
                 <el-icon><CircleCheck /></el-icon> 已实名
               </el-tag>
-              <el-tag v-else type="info">
+              <el-tag v-else type="info" effect="plain">
                 <el-icon><Warning /></el-icon> 未实名
               </el-tag>
               <!-- 工程师认证状态 -->
-              <el-tag v-if="userStore.user?.certification_status === 'pending'" type="warning">工程师认证中</el-tag>
-              <el-tag v-else-if="userStore.user?.certification_status === 'approved'" type="success">已认证工程师</el-tag>
+              <el-tag v-if="userStore.user?.certification_status === 'pending'" type="warning" effect="dark">认证审核中</el-tag>
+              <el-tag v-else-if="userStore.user?.certification_status === 'approved'" type="success" effect="dark">已认证工程师</el-tag>
             </div>
             <p class="balance">账户余额: <span>¥{{ userStore.user?.balance?.toLocaleString() || '0' }}</span></p>
           </div>
@@ -188,8 +200,10 @@
 import { ref, reactive, onMounted, computed } from 'vue'
 import { useUserStore } from '../store'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { UserFilled, Plus, CircleCheck, Warning } from '@element-plus/icons-vue'
+import { UserFilled, Plus, CircleCheck, Warning, Camera } from '@element-plus/icons-vue'
 import api from '../api'
+
+const backendBaseURL = api.defaults.baseURL || ''
 
 const userStore = useUserStore()
 const form = reactive({
@@ -215,6 +229,34 @@ const handlePictureCardPreview = (file) => {
 
 const handleRemove = (file, fileList) => {
   certImages.value = fileList
+}
+
+// 头像上传
+const handleAvatarChange = async (file) => {
+  if (!file.raw) return
+
+  // 验证文件类型
+  if (!file.raw.type.startsWith('image/')) {
+    return ElMessage.warning('请选择图片文件')
+  }
+
+  // 验证文件大小 (5MB)
+  if (file.raw.size > 5 * 1024 * 1024) {
+    return ElMessage.warning('图片大小不能超过5MB')
+  }
+
+  const formData = new FormData()
+  formData.append('avatar', file.raw)
+
+  try {
+    const res = await api.post('/auth/avatar', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+    await userStore.fetchUser()
+    ElMessage.success('头像上传成功')
+  } catch (e) {
+    ElMessage.error(e.response?.data?.error || '头像上传失败')
+  }
 }
 
 // 修改密码相关
@@ -407,16 +449,142 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-h3 { margin: 0; }
-.user-card { text-align: center; }
-.user-card h3 { margin: 12px 0 8px; }
-.balance { margin-top: 12px; color: #909399; }
-.balance span { color: #f56c6c; font-weight: bold; font-size: 20px; }
-.quick-amounts { display: flex; gap: 8px; margin-top: 12px; }
-.review-summary { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #ebeef5; }
-.review-item { padding: 12px 0; border-bottom: 1px solid #ebeef5; }
-.review-item:last-child { border-bottom: none; }
-.review-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-.review-item p { color: #606266; font-size: 14px; margin: 4px 0; }
-.review-time { font-size: 12px; color: #c0c4cc; }
+.profile-container {
+  padding: 0;
+}
+
+.profile-card {
+  border-radius: 16px;
+  border: none;
+}
+
+h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.user-card {
+  text-align: center;
+  padding: 10px 0;
+}
+
+.avatar-wrapper {
+  position: relative;
+  display: inline-block;
+  margin-bottom: 16px;
+}
+
+.avatar-uploader {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #409eff, #67c23a);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.2s;
+  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.4);
+}
+
+.avatar-uploader:hover {
+  transform: scale(1.1);
+}
+
+.avatar-uploader-icon {
+  color: white;
+  font-size: 18px;
+}
+
+.user-card h3 {
+  margin: 16px 0 12px;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.tags-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.balance {
+  margin-top: 16px;
+  color: #909399;
+  font-size: 14px;
+}
+
+.balance span {
+  color: #f56c6c;
+  font-weight: 700;
+  font-size: 24px;
+}
+
+.quick-amounts {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+.review-summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #ebeef5;
+}
+
+.review-item {
+  padding: 16px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.review-item:last-child {
+  border-bottom: none;
+}
+
+.review-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.review-item p {
+  color: #606266;
+  font-size: 14px;
+  margin: 8px 0;
+  line-height: 1.6;
+}
+
+.review-time {
+  font-size: 12px;
+  color: #c0c4cc;
+}
+
+:deep(.el-card) {
+  border-radius: 16px;
+  border: none;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+:deep(.el-form-item__label) {
+  font-weight: 500;
+}
+
+:deep(.el-input__wrapper) {
+  border-radius: 8px;
+}
+
+:deep(.el-button) {
+  border-radius: 8px;
+}
 </style>

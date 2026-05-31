@@ -1,14 +1,19 @@
 <template>
-  <div>
-    <el-tabs v-model="activeTab" @tab-change="handleTabChange">
+  <div class="admin-container">
+    <el-tabs v-model="activeTab" @tab-change="handleTabChange" class="admin-tabs">
       <!-- 平台概览 -->
       <el-tab-pane label="平台概览" name="overview">
-        <el-row :gutter="16" style="margin-bottom: 20px">
+        <el-row :gutter="20" style="margin-bottom: 24px">
           <el-col :span="6" v-for="card in overviewCards" :key="card.label">
-            <el-card shadow="hover">
-              <div style="text-align: center">
-                <div style="font-size: 28px; font-weight: bold; color: #409eff">{{ card.value }}</div>
-                <div style="font-size: 13px; color: #909399; margin-top: 4px">{{ card.label }}</div>
+            <el-card shadow="hover" class="stat-card" :body-style="{ padding: '20px' }">
+              <div class="stat-card-content">
+                <div class="stat-icon" :style="{ backgroundColor: card.color + '20', color: card.color }">
+                  <el-icon :size="28"><component :is="card.icon" /></el-icon>
+                </div>
+                <div class="stat-info">
+                  <div class="stat-value">{{ card.value }}</div>
+                  <div class="stat-label">{{ card.label }}</div>
+                </div>
               </div>
             </el-card>
           </el-col>
@@ -309,6 +314,7 @@
 import { ref, reactive, computed, onMounted, nextTick, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { User, UserFilled, Briefcase, Folder, Document, Clock, Money } from '@element-plus/icons-vue'
 import * as echarts from 'echarts'
 import api from '../api'
 
@@ -332,11 +338,13 @@ const revenueChartRef = ref(null)
 let charts = []
 
 const overviewCards = computed(() => [
-  { label: '总用户', value: adminStats.value.total_users || 0 },
-  { label: '总工程', value: adminStats.value.total_projects || 0 },
-  { label: '总合同', value: adminStats.value.total_contracts || 0 },
-  { label: '总交易额', value: `¥${(adminStats.value.total_revenue || 0).toLocaleString()}` },
-  { label: '待审批认证', value: adminStats.value.pending_certs || 0 }
+  { label: '用户总数', value: adminStats.value.total_users || 0, icon: 'User', color: '#409eff' },
+  { label: '甲方用户', value: adminStats.value.total_clients || 0, icon: 'UserFilled', color: '#67c23a' },
+  { label: '工程师', value: adminStats.value.total_engineers || 0, icon: 'Briefcase', color: '#e6a23c' },
+  { label: '项目总数', value: adminStats.value.total_projects || 0, icon: 'Folder', color: '#909399' },
+  { label: '合同总数', value: adminStats.value.total_contracts || 0, icon: 'Document', color: '#f56c6c' },
+  { label: '待审批', value: adminStats.value.pending_certs || 0, icon: 'Clock', color: '#e6a23c' },
+  { label: '总交易额', value: `¥${(adminStats.value.total_revenue || 0).toLocaleString()}`, icon: 'Money', color: '#f56c6c' }
 ])
 
 // 用户管理
@@ -533,5 +541,80 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-h3 { margin: 0; }
+.admin-container {
+  padding: 0;
+}
+
+.admin-tabs :deep(.el-tabs__header) {
+  margin-bottom: 24px;
+}
+
+.admin-tabs :deep(.el-tabs__item) {
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.stat-card {
+  border-radius: 12px;
+  transition: all 0.3s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
+}
+
+.stat-card-content {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.stat-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.stat-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.stat-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: #303133;
+  line-height: 1.2;
+}
+
+.stat-label {
+  font-size: 13px;
+  color: #909399;
+  margin-top: 4px;
+}
+
+h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+:deep(.el-card) {
+  border-radius: 12px;
+  border: none;
+}
+
+:deep(.el-table) {
+  border-radius: 8px;
+}
+
+:deep(.el-table th) {
+  background-color: #f5f7fa !important;
+  font-weight: 600;
+}
 </style>

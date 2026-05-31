@@ -40,7 +40,7 @@
         </el-badge>
         <el-dropdown @command="handleCommand">
           <span class="user-info">
-            <el-avatar :size="32" :icon="UserFilled" />
+            <el-avatar :size="32" :src="userStore.user?.avatar ? backendBaseURL + userStore.user.avatar : ''" :icon="UserFilled" />
             <span class="username">{{ userStore.user?.real_name || userStore.user?.username }}</span>
             <el-tag v-if="userStore.isClient" size="small" type="primary">甲方</el-tag>
             <el-tag v-else-if="userStore.isEngineer" size="small" type="success">工程师</el-tag>
@@ -75,6 +75,7 @@ const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
 const unreadCount = ref(0)
+const backendBaseURL = api.defaults.baseURL || ''
 
 const fetchUnread = async () => {
   if (!userStore.isLoggedIn) return

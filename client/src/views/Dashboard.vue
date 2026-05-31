@@ -1,16 +1,18 @@
 <template>
-  <div>
+  <div class="dashboard-container">
     <!-- 甲方仪表盘 -->
     <template v-if="userStore.isClient">
-      <el-row :gutter="16" style="margin-bottom: 20px">
+      <el-row :gutter="20" style="margin-bottom: 24px">
         <el-col :span="6" v-for="card in clientCards" :key="card.title">
           <el-card shadow="hover" class="stat-card">
-            <div class="stat-icon" :style="{ background: card.color }">
-              <el-icon :size="24"><component :is="card.icon" /></el-icon>
-            </div>
-            <div class="stat-info">
-              <span class="stat-value">{{ card.value }}</span>
-              <span class="stat-title">{{ card.title }}</span>
+            <div class="stat-card-content">
+              <div class="stat-icon" :style="{ backgroundColor: card.color + '15', color: card.color }">
+                <el-icon :size="28"><component :is="card.icon" /></el-icon>
+              </div>
+              <div class="stat-info">
+                <span class="stat-value">{{ card.value }}</span>
+                <span class="stat-title">{{ card.title }}</span>
+              </div>
             </div>
           </el-card>
         </el-col>
@@ -54,15 +56,17 @@
 
     <!-- 工程师仪表盘 -->
     <template v-else-if="userStore.isEngineer">
-      <el-row :gutter="16" style="margin-bottom: 20px">
+      <el-row :gutter="20" style="margin-bottom: 24px">
         <el-col :span="5" v-for="card in engineerCards" :key="card.title">
           <el-card shadow="hover" class="stat-card">
-            <div class="stat-icon" :style="{ background: card.color }">
-              <el-icon :size="24"><component :is="card.icon" /></el-icon>
-            </div>
-            <div class="stat-info">
-              <span class="stat-value">{{ card.value }}</span>
-              <span class="stat-title">{{ card.title }}</span>
+            <div class="stat-card-content">
+              <div class="stat-icon" :style="{ backgroundColor: card.color + '15', color: card.color }">
+                <el-icon :size="28"><component :is="card.icon" /></el-icon>
+              </div>
+              <div class="stat-info">
+                <span class="stat-value">{{ card.value }}</span>
+                <span class="stat-title">{{ card.title }}</span>
+              </div>
             </div>
           </el-card>
         </el-col>
@@ -228,10 +232,80 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-h3 { margin: 0; }
-.stat-card .el-card__body { display: flex; align-items: center; gap: 16px; }
-.stat-icon { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #fff; }
-.stat-info { display: flex; flex-direction: column; }
-.stat-value { font-size: 24px; font-weight: bold; color: #303133; }
-.stat-title { font-size: 13px; color: #909399; }
+.dashboard-container {
+  padding: 0;
+}
+
+h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.stat-card {
+  border-radius: 16px;
+  border: none;
+  transition: all 0.3s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
+}
+
+.stat-card-content {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 0;
+}
+
+.stat-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.stat-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.stat-value {
+  font-size: 26px;
+  font-weight: 700;
+  color: #303133;
+  line-height: 1.2;
+}
+
+.stat-title {
+  font-size: 13px;
+  color: #909399;
+  margin-top: 4px;
+}
+
+:deep(.el-card) {
+  border-radius: 16px;
+  border: none;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+:deep(.el-table) {
+  border-radius: 12px;
+}
+
+:deep(.el-table th) {
+  background-color: #f5f7fa !important;
+  font-weight: 600;
+}
+
+:deep(.el-card__header) {
+  padding: 18px 20px;
+  border-bottom: 1px solid #f0f0f0;
+}
 </style>
