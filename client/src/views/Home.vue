@@ -119,7 +119,8 @@ const router = useRouter()
 const userStore = useUserStore()
 
 const isLoggedIn = computed(() => userStore.isLoggedIn)
-const isAdmin = computed(() => userStore.isAdmin)
+// 使用后端返回的 is_admin 来判断，确保与数据获取逻辑一致
+const isAdmin = computed(() => globalStats.value?.is_admin === true || userStore.isAdmin)
 
 const categories = ['安防监控', '网络布线', '门禁系统', '楼宇对讲', '停车场系统', '广播系统', '综合布线', '其他']
 const projects = ref([])
