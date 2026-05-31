@@ -137,4 +137,38 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_verification_target ON verification_codes(target, type, purpose);
 `);
 
+// JWT黑名单表 - 用于登出后使令牌立即失效
+db.exec(`
+  CREATE TABLE IF NOT EXISTS token_blacklist (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    jti TEXT UNIQUE NOT NULL,
+    token_type TEXT NOT NULL CHECK(token_type IN ('access', 'refresh')),
+    expires_at DATETIME NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_token_blacklist_jti ON token_blacklist(jti);
+  CREATE INDEX IF NOT EXISTS idx_token_blacklist_expires ON token_blacklist(expires_at);
+`);
+
+// 定期清理过期的黑名单令牌（每天执行）
+const cleanupBlacklist = db.prepare(`
+  DELETE FROM token_blacklist WHERE expires_at < datetime('now')
+`);
+setInterval(() => {
+  cleanupBlacklist.run();
+}, 24 * 60 * 60 * 1000); // 24小时
+
+// 迁移：添加敏感字段（加密存储）
+try {
+  db.prepare("SELECT id_card_encrypted FROM users LIMIT 1").get();
+} catch (e) {
+  db.exec("ALTER TABLE users ADD COLUMN id_card_encrypted TEXT");
+}
+try {
+  db.prepare("SELECT bank_card_encrypted FROM users LIMIT 1").get();
+} catch (e) {
+  db.exec("ALTER TABLE users ADD COLUMN bank_card_encrypted TEXT");
+}
+
 module.exports = db;

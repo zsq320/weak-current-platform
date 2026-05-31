@@ -10,11 +10,22 @@
 
 const express = require('express');
 const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
 const db = require('../db');
-const { authMiddleware, JWT_SECRET } = require('../middleware/auth');
+const {
+  authMiddleware,
+  logout,
+  generateTokenPair,
+  refreshAccessToken
+} = require('../middleware/auth');
 const { logAudit } = require('../middleware/audit');
 const { validateRegister, validatePhoneLogin } = require('../middleware/validation');
+const {
+  sanitizeUser,
+  encryptIdCard,
+  decryptIdCard,
+  encryptBankCard,
+  decryptBankCard
+} = require('../utils/encryption');
 
 const router = express.Router();
 
@@ -84,12 +95,9 @@ router.post('/register', validateRegister, (req, res) => {
   db.prepare('UPDATE verification_codes SET used = 1 WHERE id = ?').run(phoneVerification.id);
   db.prepare('UPDATE verification_codes SET used = 1 WHERE id = ?').run(emailVerification.id);
 
-  // 生成 Token
-  const token = jwt.sign(
-    { id: result.lastInsertRowid, username, role: 'user' },
-    JWT_SECRET,
-    { expiresIn: '7d' }
-  );
+  // 生成令牌对（访问令牌 + 刷新令牌）
+  const newUser = { id: result.lastInsertRowid, username, role: 'user' };
+  const { accessToken, refreshToken } = generateTokenPair(newUser);
 
   // 发送欢迎消息
   db.prepare('INSERT INTO messages (to_user_id, title, content, type) VALUES (?, ?, ?, ?)').run(
@@ -102,15 +110,16 @@ router.post('/register', validateRegister, (req, res) => {
   logAudit(result.lastInsertRowid, 'register', 'user', result.lastInsertRowid, null, req.ip);
 
   res.json({
-    token,
-    user: {
+    accessToken,
+    refreshToken,
+    user: sanitizeUser({
       id: result.lastInsertRowid,
       username,
       role: 'user',
       real_name,
       phone,
       email
-    }
+    })
   });
 });
 
@@ -129,28 +138,15 @@ router.post('/login', (req, res) => {
     return res.status(403).json({ error: '账户已被禁用，请联系管理员' });
   }
 
-  const token = jwt.sign(
-    { id: user.id, username: user.username, role: user.role },
-    JWT_SECRET,
-    { expiresIn: '7d' }
-  );
+  // 生成令牌对
+  const { accessToken, refreshToken } = generateTokenPair(user);
 
   logAudit(user.id, 'login', 'user', user.id, null, req.ip);
 
   res.json({
-    token,
-    user: {
-      id: user.id,
-      username: user.username,
-      role: user.role,
-      real_name: user.real_name,
-      phone: user.phone,
-      email: user.email,
-      certification: user.certification,
-      certification_status: user.certification_status,
-      balance: user.balance,
-      avatar: user.avatar
-    }
+    accessToken,
+    refreshToken,
+    user: sanitizeUser(user)
   });
 });
 
@@ -184,33 +180,44 @@ router.post('/login/phone', validatePhoneLogin, (req, res) => {
   // 标记验证码已使用
   db.prepare('UPDATE verification_codes SET used = 1 WHERE id = ?').run(verification.id);
 
-  // 生成 Token
-  const token = jwt.sign(
-    { id: user.id, username: user.username, role: user.role },
-    JWT_SECRET,
-    { expiresIn: '7d' }
-  );
+  // 生成令牌对
+  const { accessToken, refreshToken } = generateTokenPair(user);
 
   logAudit(user.id, 'login_phone', 'user', user.id, null, req.ip);
 
   res.json({
-    token,
-    user: {
-      id: user.id,
-      username: user.username,
-      role: user.role,
-      real_name: user.real_name,
-      phone: user.phone,
-      email: user.email,
-      certification: user.certification,
-      certification_status: user.certification_status,
-      balance: user.balance,
-      avatar: user.avatar
-    }
+    accessToken,
+    refreshToken,
+    user: sanitizeUser(user)
   });
 });
 
-// 获取当前用户信息
+// 刷新访问令牌
+router.post('/refresh', (req, res) => {
+  const { refreshToken } = req.body;
+
+  if (!refreshToken) {
+    return res.status(400).json({ error: '缺少刷新令牌' });
+  }
+
+  try {
+    const tokens = refreshAccessToken(refreshToken);
+    res.json({
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken
+    });
+  } catch (err) {
+    return res.status(401).json({ error: err.message });
+  }
+});
+
+// 登出（使令牌失效）
+router.post('/logout', logout, (req, res) => {
+  logAudit(req.user?.id, 'logout', 'user', req.user?.id, null, req.ip);
+  res.json({ message: '登出成功' });
+});
+
+// 获取当前用户信息（脱敏）
 router.get('/me', authMiddleware, (req, res) => {
   const user = db.prepare(`
     SELECT id, username, role, real_name, phone, email, phone_verified, email_verified,
@@ -219,15 +226,94 @@ router.get('/me', authMiddleware, (req, res) => {
   `).get(req.user.id);
 
   if (!user) return res.status(404).json({ error: '用户不存在' });
-  res.json(user);
+
+  // 返回脱敏后的用户信息
+  res.json(sanitizeUser(user));
 });
 
 // 更新个人信息
 router.put('/profile', authMiddleware, (req, res) => {
   const { real_name, phone, email, avatar } = req.body;
+
+  // 验证输入
+  if (phone && !PHONE_REGEX.test(phone)) {
+    return res.status(400).json({ error: '手机号格式不正确' });
+  }
+  if (email && !EMAIL_REGEX.test(email)) {
+    return res.status(400).json({ error: '邮箱格式不正确' });
+  }
+
+  // 检查手机号是否被其他用户使用
+  if (phone) {
+    const existingPhone = db.prepare('SELECT id FROM users WHERE phone = ? AND id != ?').get(phone, req.user.id);
+    if (existingPhone) {
+      return res.status(400).json({ error: '该手机号已被其他用户使用' });
+    }
+  }
+
+  // 检查邮箱是否被其他用户使用
+  if (email) {
+    const existingEmail = db.prepare('SELECT id FROM users WHERE email = ? AND id != ?').get(email, req.user.id);
+    if (existingEmail) {
+      return res.status(400).json({ error: '该邮箱已被其他用户使用' });
+    }
+  }
+
   db.prepare('UPDATE users SET real_name = ?, phone = ?, email = ?, avatar = ? WHERE id = ?')
     .run(real_name, phone, email, avatar, req.user.id);
+
   res.json({ message: '更新成功' });
+});
+
+// 保存敏感信息（加密存储）
+router.post('/sensitive', authMiddleware, (req, res) => {
+  const { id_card, bank_card } = req.body;
+
+  const updates = [];
+  const params = [];
+
+  if (id_card) {
+    // 验证身份证号格式（简单验证）
+    if (!/^\d{17}[\dXx]$/.test(id_card)) {
+      return res.status(400).json({ error: '身份证号格式不正确' });
+    }
+    updates.push('id_card_encrypted = ?');
+    params.push(encryptIdCard(id_card));
+  }
+
+  if (bank_card) {
+    // 验证银行卡号格式（16-19位数字）
+    if (!/^\d{16,19}$/.test(bank_card)) {
+      return res.status(400).json({ error: '银行卡号格式不正确' });
+    }
+    updates.push('bank_card_encrypted = ?');
+    params.push(encryptBankCard(bank_card));
+  }
+
+  if (updates.length === 0) {
+    return res.status(400).json({ error: '没有需要保存的敏感信息' });
+  }
+
+  params.push(req.user.id);
+  db.prepare(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`).run(...params);
+
+  res.json({ message: '敏感信息已安全保存' });
+});
+
+// 获取敏感信息（解密，需验证身份）
+router.get('/sensitive', authMiddleware, (req, res) => {
+  const user = db.prepare('SELECT id_card_encrypted, bank_card_encrypted FROM users WHERE id = ?').get(req.user.id);
+
+  const result = {
+    id_card: user?.id_card_encrypted ? decryptIdCard(user.id_card_encrypted) : null,
+    bank_card: user?.bank_card_encrypted ? decryptBankCard(user.bank_card_encrypted) : null
+  };
+
+  // 返回脱敏版本
+  res.json({
+    id_card: result.id_card ? result.id_card.slice(0, 6) + '********' + result.id_card.slice(-4) : null,
+    bank_card: result.bank_card ? '****' + result.bank_card.slice(-4) : null
+  });
 });
 
 // 申请工程师认证
@@ -243,6 +329,8 @@ router.post('/certify', authMiddleware, (req, res) => {
 router.post('/deposit', authMiddleware, (req, res) => {
   const { amount } = req.body;
   if (!amount || amount <= 0) return res.status(400).json({ error: '充值金额无效' });
+  if (amount > 100000) return res.status(400).json({ error: '单次充值金额不能超过10万元' });
+
   db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?').run(amount, req.user.id);
   const user = db.prepare('SELECT balance FROM users WHERE id = ?').get(req.user.id);
   res.json({ balance: user.balance, message: `充值 ${amount} 元成功` });

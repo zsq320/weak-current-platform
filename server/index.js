@@ -8,11 +8,23 @@
 // NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
 // See the Mulan PSL v2 for more details.
 
+// 加载环境变量
+require('dotenv').config();
+
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const os = require('os');
 const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
+const {
+  helmetConfig,
+  apiLimiter,
+  loginLimiter,
+  verificationLimiter,
+  registerLimiter,
+  sensitiveLimiter,
+  corsConfig
+} = require('./middleware/security');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -41,8 +53,18 @@ function getLocalIP() {
   return candidates.length > 0 ? candidates[0].address : '127.0.0.1';
 }
 
-app.use(cors());
-app.use(express.json());
+// ============ 安全中间件 ============
+// Helmet: 设置安全 HTTP 头
+app.use(helmetConfig);
+
+// CORS: 跨域配置
+app.use(cors(corsConfig));
+
+// 请求体解析
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// 请求日志
 app.use((req, res, next) => {
   if (req.path.startsWith('/api')) {
     console.log(`[${new Date().toLocaleTimeString()}] ${req.method} ${req.path}`);
@@ -50,18 +72,28 @@ app.use((req, res, next) => {
   }
   next();
 });
+
+// 静态文件
 app.use(express.static(path.join(__dirname, '..', 'client', 'dist')));
 
-// API 路由
+// ============ API 路由（带速率限制）============
+// 认证相关（严格限制）
+app.use('/api/auth/login', loginLimiter);
+app.use('/api/auth/login/phone', loginLimiter);
+app.use('/api/auth/register', registerLimiter);
 app.use('/api/auth', require('./routes/auth'));
-app.use('/api/verification', require('./routes/verification'));
-app.use('/api/projects', require('./routes/projects'));
-app.use('/api/bids', require('./routes/bids'));
-app.use('/api/contracts', require('./routes/contracts'));
-app.use('/api/reviews', require('./routes/reviews'));
-app.use('/api/messages', require('./routes/messages'));
-app.use('/api/dashboard', require('./routes/dashboard'));
-app.use('/api/admin', require('./routes/admin'));
+
+// 验证码（限制发送频率）
+app.use('/api/verification', verificationLimiter, require('./routes/verification'));
+
+// 业务 API（一般限制）
+app.use('/api/projects', apiLimiter, require('./routes/projects'));
+app.use('/api/bids', apiLimiter, require('./routes/bids'));
+app.use('/api/contracts', apiLimiter, require('./routes/contracts'));
+app.use('/api/reviews', apiLimiter, require('./routes/reviews'));
+app.use('/api/messages', apiLimiter, require('./routes/messages'));
+app.use('/api/dashboard', apiLimiter, require('./routes/dashboard'));
+app.use('/api/admin', sensitiveLimiter, require('./routes/admin'));
 
 // 前端路由回退
 app.get('*', (req, res) => {
@@ -80,6 +112,10 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`  本机访问: http://localhost:${PORT}`);
   console.log(`  局域网访问: http://${ip}:${PORT}`);
   console.log('========================================');
-  console.log('  将上面的局域网地址发送给其他人即可访问');
+  console.log('  安全特性已启用:');
+  console.log('  - Helmet 安全头');
+  console.log('  - API 速率限制');
+  console.log('  - 登录防暴力破解');
+  console.log('  - JWT 令牌刷新机制');
   console.log('========================================');
 });
