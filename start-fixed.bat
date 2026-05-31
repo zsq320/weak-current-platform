@@ -36,5 +36,9 @@ echo.
 echo [2/2] Starting server...
 echo.
 
+set NODE_ENV=production
+set JWT_SECRET=weak-platform-jwt-secret-key-2026-very-long
+set ENCRYPTION_KEY=encryption-key-for-data-32bytes-long
+
 node server/start-fixed.js
 pause
