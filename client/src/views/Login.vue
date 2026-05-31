@@ -134,9 +134,9 @@ const handlePhoneLogin = async () => {
   loading.value = true
   try {
     const res = await api.post('/auth/login/phone', phoneForm)
-    userStore.token = res.token
+    // 使用 store 的 saveTokens 方法保存令牌
+    userStore.saveTokens(res.accessToken, res.refreshToken)
     userStore.user = res.user
-    localStorage.setItem('token', res.token)
     localStorage.setItem('user', JSON.stringify(res.user))
     ElMessage.success('登录成功')
     router.push('/')
