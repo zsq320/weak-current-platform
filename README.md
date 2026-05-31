@@ -67,4 +67,6 @@ cd .. && npm start
 
 ## 许可证
 
-MIT
+[木兰宽松许可证，第2版](LICENSE) (Mulan PSL v2)
+
+Copyright (c) 2026 ZSQ320
