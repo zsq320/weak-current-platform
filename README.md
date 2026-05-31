@@ -12,6 +12,7 @@
 
 ### 业务功能
 - **项目管理**：发布工程项目、浏览项目详情
+- **进度管理**：任务分解、里程碑跟踪、甘特图展示、逾期预警
 - **投标系统**：工程师可对项目进行投标
 - **合同管理**：在线签订电子合同
 - **消息通知**：系统消息推送
@@ -116,6 +117,18 @@ npm start
 - `POST /api/auth/logout` - 登出（令牌失效）
 - `GET /api/auth/me` - 获取当前用户信息（脱敏）
 - `POST /api/auth/sensitive` - 保存敏感信息（加密）
+
+### 项目任务管理
+- `GET /api/projects/:id/tasks` - 获取项目任务列表
+- `POST /api/projects/:id/tasks` - 创建任务（项目所有者）
+- `PUT /api/projects/:id/tasks/:taskId` - 更新任务
+- `DELETE /api/projects/:id/tasks/:taskId` - 删除任务
+
+### 项目里程碑管理
+- `GET /api/projects/:id/milestones` - 获取里程碑列表
+- `POST /api/projects/:id/milestones` - 创建里程碑
+- `PUT /api/projects/:id/milestones/:milestoneId` - 更新里程碑
+- `DELETE /api/projects/:id/milestones/:milestoneId` - 删除里程碑
 - `GET /api/auth/sensitive` - 获取敏感信息（脱敏）
 
 ## 部署说明
