@@ -11,4 +11,5 @@ ngrok-domain.txt
 tunnel-name.txt
 tunnel-domain.txt
 .env
+.env.local
 .claude/

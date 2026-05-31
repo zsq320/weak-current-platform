@@ -109,4 +109,32 @@ try {
   db.exec("ALTER TABLE users ADD COLUMN is_disabled INTEGER DEFAULT 0");
 }
 
+// 迁移：添加 phone_verified 和 email_verified 字段
+try {
+  db.prepare("SELECT phone_verified FROM users LIMIT 1").get();
+} catch (e) {
+  db.exec("ALTER TABLE users ADD COLUMN phone_verified INTEGER DEFAULT 0");
+}
+try {
+  db.prepare("SELECT email_verified FROM users LIMIT 1").get();
+} catch (e) {
+  db.exec("ALTER TABLE users ADD COLUMN email_verified INTEGER DEFAULT 0");
+}
+
+// 验证码表
+db.exec(`
+  CREATE TABLE IF NOT EXISTS verification_codes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    target TEXT NOT NULL,
+    type TEXT NOT NULL CHECK(type IN ('phone', 'email')),
+    code TEXT NOT NULL,
+    purpose TEXT NOT NULL DEFAULT 'register' CHECK(purpose IN ('register', 'login')),
+    expires_at DATETIME NOT NULL,
+    used INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_verification_target ON verification_codes(target, type, purpose);
+`);
+
 module.exports = db;

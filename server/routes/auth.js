@@ -7,43 +7,114 @@
 // KIND, EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO
 // NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
 // See the Mulan PSL v2 for more details.
+
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const db = require('../db');
 const { authMiddleware, JWT_SECRET } = require('../middleware/auth');
 const { logAudit } = require('../middleware/audit');
+const { validateRegister, validatePhoneLogin } = require('../middleware/validation');
 
 const router = express.Router();
 
-// 注册
-router.post('/register', (req, res) => {
-  const { username, password, real_name, phone, email } = req.body;
-  if (!username || !password) {
-    return res.status(400).json({ error: '用户名和密码不能为空' });
+// 手机号正则
+const PHONE_REGEX = /^1[3-9]\d{9}$/;
+// 邮箱正则
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// 注册（需要验证手机号和邮箱）
+router.post('/register', validateRegister, (req, res) => {
+  const { username, password, real_name, phone, email, phone_code, email_code } = req.body;
+
+  // 验证手机号验证码
+  const phoneVerification = db.prepare(`
+    SELECT * FROM verification_codes
+    WHERE target = ? AND type = 'phone' AND purpose = 'register' AND used = 0
+    ORDER BY created_at DESC LIMIT 1
+  `).get(phone);
+
+  if (!phoneVerification || phoneVerification.code !== phone_code) {
+    return res.status(400).json({ error: '手机验证码错误' });
+  }
+  if (new Date(phoneVerification.expires_at) < new Date()) {
+    return res.status(400).json({ error: '手机验证码已过期' });
   }
 
-  const existing = db.prepare('SELECT id FROM users WHERE username = ?').get(username);
-  if (existing) {
+  // 验证邮箱验证码
+  const emailVerification = db.prepare(`
+    SELECT * FROM verification_codes
+    WHERE target = ? AND type = 'email' AND purpose = 'register' AND used = 0
+    ORDER BY created_at DESC LIMIT 1
+  `).get(email);
+
+  if (!emailVerification || emailVerification.code !== email_code) {
+    return res.status(400).json({ error: '邮箱验证码错误' });
+  }
+  if (new Date(emailVerification.expires_at) < new Date()) {
+    return res.status(400).json({ error: '邮箱验证码已过期' });
+  }
+
+  // 检查用户名是否存在
+  const existingUsername = db.prepare('SELECT id FROM users WHERE username = ?').get(username);
+  if (existingUsername) {
     return res.status(400).json({ error: '用户名已存在' });
   }
 
+  // 检查手机号是否存在
+  const existingPhone = db.prepare('SELECT id FROM users WHERE phone = ?').get(phone);
+  if (existingPhone) {
+    return res.status(400).json({ error: '该手机号已被注册' });
+  }
+
+  // 检查邮箱是否存在
+  const existingEmail = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
+  if (existingEmail) {
+    return res.status(400).json({ error: '该邮箱已被注册' });
+  }
+
+  // 创建用户
   const password_hash = bcrypt.hashSync(password, 10);
-  const result = db.prepare(
-    'INSERT INTO users (username, password_hash, role, real_name, phone, email) VALUES (?, ?, ?, ?, ?, ?)'
-  ).run(username, password_hash, 'user', real_name, phone, email);
+  const result = db.prepare(`
+    INSERT INTO users (username, password_hash, role, real_name, phone, email, phone_verified, email_verified)
+    VALUES (?, ?, ?, ?, ?, ?, 1, 1)
+  `).run(username, password_hash, 'user', real_name, phone, email);
 
-  const token = jwt.sign({ id: result.lastInsertRowid, username, role: 'user' }, JWT_SECRET, { expiresIn: '7d' });
+  // 标记验证码已使用
+  db.prepare('UPDATE verification_codes SET used = 1 WHERE id = ?').run(phoneVerification.id);
+  db.prepare('UPDATE verification_codes SET used = 1 WHERE id = ?').run(emailVerification.id);
 
+  // 生成 Token
+  const token = jwt.sign(
+    { id: result.lastInsertRowid, username, role: 'user' },
+    JWT_SECRET,
+    { expiresIn: '7d' }
+  );
+
+  // 发送欢迎消息
   db.prepare('INSERT INTO messages (to_user_id, title, content, type) VALUES (?, ?, ?, ?)').run(
-    result.lastInsertRowid, '欢迎加入', '欢迎注册弱电工程管理平台！您可以浏览和发布工程信息。', 'system'
+    result.lastInsertRowid,
+    '欢迎加入',
+    '欢迎注册弱电工程管理平台！您可以浏览和发布工程信息。',
+    'system'
   );
 
   logAudit(result.lastInsertRowid, 'register', 'user', result.lastInsertRowid, null, req.ip);
-  res.json({ token, user: { id: result.lastInsertRowid, username, role: 'user', real_name } });
+
+  res.json({
+    token,
+    user: {
+      id: result.lastInsertRowid,
+      username,
+      role: 'user',
+      real_name,
+      phone,
+      email
+    }
+  });
 });
 
-// 登录
+// 账号密码登录
 router.post('/login', (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) {
@@ -58,23 +129,95 @@ router.post('/login', (req, res) => {
     return res.status(403).json({ error: '账户已被禁用，请联系管理员' });
   }
 
-  const token = jwt.sign({ id: user.id, username: user.username, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
+  const token = jwt.sign(
+    { id: user.id, username: user.username, role: user.role },
+    JWT_SECRET,
+    { expiresIn: '7d' }
+  );
+
   logAudit(user.id, 'login', 'user', user.id, null, req.ip);
 
   res.json({
     token,
     user: {
-      id: user.id, username: user.username, role: user.role,
-      real_name: user.real_name, phone: user.phone, email: user.email,
-      certification: user.certification, certification_status: user.certification_status,
-      balance: user.balance, avatar: user.avatar
+      id: user.id,
+      username: user.username,
+      role: user.role,
+      real_name: user.real_name,
+      phone: user.phone,
+      email: user.email,
+      certification: user.certification,
+      certification_status: user.certification_status,
+      balance: user.balance,
+      avatar: user.avatar
+    }
+  });
+});
+
+// 手机号+验证码登录
+router.post('/login/phone', validatePhoneLogin, (req, res) => {
+  const { phone, code } = req.body;
+
+  // 查找验证码
+  const verification = db.prepare(`
+    SELECT * FROM verification_codes
+    WHERE target = ? AND type = 'phone' AND purpose = 'login' AND used = 0
+    ORDER BY created_at DESC LIMIT 1
+  `).get(phone);
+
+  if (!verification || verification.code !== code) {
+    return res.status(400).json({ error: '验证码错误' });
+  }
+  if (new Date(verification.expires_at) < new Date()) {
+    return res.status(400).json({ error: '验证码已过期' });
+  }
+
+  // 查找用户
+  const user = db.prepare('SELECT * FROM users WHERE phone = ?').get(phone);
+  if (!user) {
+    return res.status(404).json({ error: '该手机号未注册' });
+  }
+  if (user.is_disabled) {
+    return res.status(403).json({ error: '账户已被禁用，请联系管理员' });
+  }
+
+  // 标记验证码已使用
+  db.prepare('UPDATE verification_codes SET used = 1 WHERE id = ?').run(verification.id);
+
+  // 生成 Token
+  const token = jwt.sign(
+    { id: user.id, username: user.username, role: user.role },
+    JWT_SECRET,
+    { expiresIn: '7d' }
+  );
+
+  logAudit(user.id, 'login_phone', 'user', user.id, null, req.ip);
+
+  res.json({
+    token,
+    user: {
+      id: user.id,
+      username: user.username,
+      role: user.role,
+      real_name: user.real_name,
+      phone: user.phone,
+      email: user.email,
+      certification: user.certification,
+      certification_status: user.certification_status,
+      balance: user.balance,
+      avatar: user.avatar
     }
   });
 });
 
 // 获取当前用户信息
 router.get('/me', authMiddleware, (req, res) => {
-  const user = db.prepare('SELECT id, username, role, real_name, phone, email, certification, certification_status, balance, avatar, created_at FROM users WHERE id = ?').get(req.user.id);
+  const user = db.prepare(`
+    SELECT id, username, role, real_name, phone, email, phone_verified, email_verified,
+           certification, certification_status, balance, avatar, created_at
+    FROM users WHERE id = ?
+  `).get(req.user.id);
+
   if (!user) return res.status(404).json({ error: '用户不存在' });
   res.json(user);
 });

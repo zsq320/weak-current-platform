@@ -12,6 +12,7 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const os = require('os');
+const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -53,6 +54,7 @@ app.use(express.static(path.join(__dirname, '..', 'client', 'dist')));
 
 // API 路由
 app.use('/api/auth', require('./routes/auth'));
+app.use('/api/verification', require('./routes/verification'));
 app.use('/api/projects', require('./routes/projects'));
 app.use('/api/bids', require('./routes/bids'));
 app.use('/api/contracts', require('./routes/contracts'));
@@ -65,6 +67,10 @@ app.use('/api/admin', require('./routes/admin'));
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'client', 'dist', 'index.html'));
 });
+
+// 错误处理中间件
+app.use(notFoundHandler);
+app.use(errorHandler);
 
 app.listen(PORT, '0.0.0.0', () => {
   const ip = getLocalIP();
