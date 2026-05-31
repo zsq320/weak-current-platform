@@ -40,16 +40,52 @@
 
             <!-- 投标列表 -->
             <el-card style="margin-top: 16px" v-if="isOwner || bids.length > 0">
-              <template #header><span>投标列表 ({{ bids.length }})</span></template>
-              <el-table :data="bids" style="width: 100%">
-                <el-table-column prop="engineer_name" label="工程师" width="120" />
-                <el-table-column prop="engineer_real_name" label="真实姓名" width="120" />
-                <el-table-column prop="price" label="报价" width="120">
+              <template #header>
+                <div class="card-header-row">
+                  <span>投标列表 ({{ bids.length }})</span>
+                  <div>
+                    <el-select v-model="bidSortField" size="small" style="width: 120px; margin-right: 8px">
+                      <el-option label="按时间" value="created_at" />
+                      <el-option label="按报价" value="price" />
+                      <el-option label="按评分" value="total_score" />
+                    </el-select>
+                    <el-button size="small" @click="toggleSortOrder">
+                      {{ bidSortOrder === 'desc' ? '降序' : '升序' }}
+                    </el-button>
+                  </div>
+                </div>
+              </template>
+              <el-table :data="bids" style="width: 100%" @sort-change="handleSortChange">
+                <el-table-column prop="username" label="工程师" width="120" />
+                <el-table-column prop="real_name" label="真实姓名" width="100">
+                  <template #default="{ row }">
+                    {{ row.real_name || '-' }}
+                  </template>
+                </el-table-column>
+                <el-table-column label="报价" width="130" sortable="custom" prop="price">
                   <template #default="{ row }">
                     <span style="color: #f56c6c; font-weight: bold">¥{{ row.price?.toLocaleString() }}</span>
                   </template>
                 </el-table-column>
-                <el-table-column prop="message" label="投标说明" />
+                <el-table-column label="工期" width="80">
+                  <template #default="{ row }">
+                    {{ row.duration ? `${row.duration}${row.duration_unit === 'days' ? '天' : row.duration_unit === 'weeks' ? '周' : '月'}` : '-' }}
+                  </template>
+                </el-table-column>
+                <el-table-column label="经验" width="60">
+                  <template #default="{ row }">
+                    {{ row.experience_years ? `${row.experience_years}年` : '-' }}
+                  </template>
+                </el-table-column>
+                <el-table-column prop="message" label="方案概述" min-width="150" show-overflow-tooltip />
+                <el-table-column label="评分" width="80" sortable="custom" prop="total_score">
+                  <template #default="{ row }">
+                    <el-tag v-if="row.total_score > 0" :type="row.total_score >= 80 ? 'success' : row.total_score >= 60 ? '' : 'warning'">
+                      {{ row.total_score }}
+                    </el-tag>
+                    <span v-else style="color: #909399">未评</span>
+                  </template>
+                </el-table-column>
                 <el-table-column prop="status" label="状态" width="100">
                   <template #default="{ row }">
                     <el-tag :type="row.status === 'accepted' ? 'success' : row.status === 'rejected' ? 'danger' : 'warning'">
@@ -57,12 +93,11 @@
                     </el-tag>
                   </template>
                 </el-table-column>
-                <el-table-column label="操作" width="160" v-if="isOwner && project.status === 'bidding'">
+                <el-table-column label="操作" width="200" v-if="isOwner">
                   <template #default="{ row }">
-                    <template v-if="row.status === 'pending'">
-                      <el-button type="success" size="small" @click="acceptBid(row.id)">接受</el-button>
-                      <el-button type="danger" size="small" @click="rejectBid(row.id)">拒绝</el-button>
-                    </template>
+                    <el-button v-if="row.status === 'pending'" type="success" size="small" @click="acceptBid(row.id)">接受</el-button>
+                    <el-button v-if="row.status === 'pending'" type="warning" size="small" @click="openScoreDialog(row)">评分</el-button>
+                    <el-button v-if="row.status === 'pending'" type="danger" size="small" @click="rejectBid(row.id)">拒绝</el-button>
                   </template>
                 </el-table-column>
               </el-table>
@@ -232,18 +267,16 @@
       </el-col>
 
       <el-col :span="8">
-        <!-- 投标表单 -->
+        <!-- 投标按钮 -->
         <el-card v-if="canBid">
-          <template #header><span>我要投标</span></template>
-          <el-form :model="bidForm" label-position="top">
-            <el-form-item label="报价金额 (元)">
-              <el-input-number v-model="bidForm.price" :min="1" :max="9999999" style="width: 100%" />
-            </el-form-item>
-            <el-form-item label="投标说明">
-              <el-input v-model="bidForm.message" type="textarea" :rows="3" placeholder="介绍您的优势和方案..." />
-            </el-form-item>
-            <el-button type="primary" @click="submitBid" :loading="bidLoading" style="width: 100%">提交投标</el-button>
-          </el-form>
+          <template #header><span>参与投标</span></template>
+          <p style="color: #909399; margin-bottom: 16px">
+            您可以参与此工程的投标，请填写详细的报价、工期和资质信息。
+          </p>
+          <el-button type="primary" @click="showBidForm = true" style="width: 100%" size="large">
+            <el-icon><Edit /></el-icon>
+            立即投标
+          </el-button>
         </el-card>
 
         <!-- 工程操作 -->
@@ -355,6 +388,22 @@
         <el-button type="primary" @click="saveMilestone" :loading="milestoneSaving">确定</el-button>
       </template>
     </el-dialog>
+
+    <!-- 多步投标表单 -->
+    <BidForm
+      v-model="showBidForm"
+      :project-id="project?.id"
+      :project-budget="project?.budget"
+      @success="fetchProject"
+    />
+
+    <!-- 评分对话框 -->
+    <BidScoreDialog
+      v-model="showScoreDialog"
+      :bid="scoringBid"
+      :project-id="project?.id"
+      @success="fetchProject"
+    />
   </div>
 </template>
 
@@ -363,7 +412,9 @@ import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '../store'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Refresh, Plus } from '@element-plus/icons-vue'
+import { Refresh, Plus, Edit } from '@element-plus/icons-vue'
+import BidForm from '../components/BidForm.vue'
+import BidScoreDialog from '../components/BidScoreDialog.vue'
 import * as echarts from 'echarts'
 import api from '../api'
 
@@ -377,6 +428,13 @@ const bidForm = ref({ price: 0, message: '' })
 const reviewForm = ref({ rating: 5, comment: '' })
 const myContract = ref(null)
 const activeTab = ref('detail')
+
+// 投标相关
+const showBidForm = ref(false)
+const showScoreDialog = ref(false)
+const scoringBid = ref(null)
+const bidSortField = ref('created_at')
+const bidSortOrder = ref('desc')
 
 // 进度管理相关
 const tasks = ref([])
@@ -511,6 +569,35 @@ const fetchMilestones = async () => {
   } catch (e) {
     console.error('获取里程碑列表失败:', e)
   }
+}
+
+// 排序处理
+const handleSortChange = ({ prop, order }) => {
+  bidSortField.value = prop || 'created_at'
+  bidSortOrder.value = order === 'ascending' ? 'asc' : 'desc'
+  fetchBidsWithSort()
+}
+
+const toggleSortOrder = () => {
+  bidSortOrder.value = bidSortOrder.value === 'desc' ? 'asc' : 'desc'
+  fetchBidsWithSort()
+}
+
+const fetchBidsWithSort = async () => {
+  try {
+    const res = await api.get(`/bids/project/${route.params.id}`, {
+      params: { sort: bidSortField.value, order: bidSortOrder.value }
+    })
+    bids.value = res.bids || []
+  } catch (e) {
+    console.error('获取投标列表失败:', e)
+  }
+}
+
+// 打开评分对话框
+const openScoreDialog = (bid) => {
+  scoringBid.value = bid
+  showScoreDialog.value = true
 }
 
 // 刷新进度数据

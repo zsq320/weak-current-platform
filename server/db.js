@@ -224,4 +224,89 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_milestones_status ON project_milestones(status);
 `);
 
+// 迁移：为 bids 表添加评分和资质字段
+const bidColumns = [
+  { name: 'duration', type: 'TEXT', default: null },
+  { name: 'duration_unit', type: 'TEXT', default: "'days'" },
+  { name: 'qualifications', type: 'TEXT', default: null },
+  { name: 'experience_years', type: 'INTEGER', default: '0' },
+  { name: 'technical_score', type: 'INTEGER', default: '0' },
+  { name: 'price_score', type: 'INTEGER', default: '0' },
+  { name: 'duration_score', type: 'INTEGER', default: '0' },
+  { name: 'qualification_score', type: 'INTEGER', default: '0' },
+  { name: 'total_score', type: 'REAL', default: '0' },
+  { name: 'scored_at', type: 'DATETIME', default: null },
+  { name: 'scored_by', type: 'INTEGER', default: null }
+];
+
+bidColumns.forEach(col => {
+  try {
+    db.prepare(`SELECT ${col.name} FROM bids LIMIT 1`).get();
+  } catch (e) {
+    const defaultClause = col.default ? `DEFAULT ${col.default}` : '';
+    db.exec(`ALTER TABLE bids ADD COLUMN ${col.name} ${col.type} ${defaultClause}`);
+  }
+});
+
+// 投标评分明细表
+db.exec(`
+  CREATE TABLE IF NOT EXISTS bid_scores (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    bid_id INTEGER NOT NULL UNIQUE,
+    project_id INTEGER NOT NULL,
+
+    -- 评分维度（每项 0-25 分，总分 100）
+    price_score INTEGER DEFAULT 0 CHECK(price_score >= 0 AND price_score <= 25),
+    duration_score INTEGER DEFAULT 0 CHECK(duration_score >= 0 AND duration_score <= 25),
+    qualification_score INTEGER DEFAULT 0 CHECK(qualification_score >= 0 AND qualification_score <= 25),
+    technical_score INTEGER DEFAULT 0 CHECK(technical_score >= 0 AND technical_score <= 25),
+
+    -- 评分明细
+    price_comment TEXT,
+    duration_comment TEXT,
+    qualification_comment TEXT,
+    technical_comment TEXT,
+
+    -- 评分人信息
+    scored_by INTEGER NOT NULL,
+    total_score REAL DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (bid_id) REFERENCES bids(id) ON DELETE CASCADE,
+    FOREIGN KEY (project_id) REFERENCES projects(id),
+    FOREIGN KEY (scored_by) REFERENCES users(id)
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_bid_scores_bid ON bid_scores(bid_id);
+  CREATE INDEX IF NOT EXISTS idx_bid_scores_project ON bid_scores(project_id);
+`);
+
+// 创建投标评分视图（方便查询）
+db.exec(`
+  CREATE VIEW IF NOT EXISTS v_bid_scores AS
+  SELECT
+    b.id as bid_id,
+    b.project_id,
+    b.engineer_id,
+    b.price,
+    b.duration,
+    b.status,
+    u.username,
+    u.real_name,
+    u.phone,
+    bs.price_score,
+    bs.duration_score,
+    bs.qualification_score,
+    bs.technical_score,
+    bs.total_score,
+    bs.scored_by,
+    bs.created_at as scored_at
+  FROM bids b
+  LEFT JOIN bid_scores bs ON b.id = bs.bid_id
+  LEFT JOIN users u ON b.engineer_id = u.id
+  WHERE bs.id IS NOT NULL
+  ORDER BY bs.total_score DESC;
+`);
+
 module.exports = db;
