@@ -80,6 +80,9 @@ app.use((req, res, next) => {
 // 静态文件
 app.use(express.static(path.join(__dirname, '..', 'client', 'dist')));
 
+// 上传文件目录
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
 // ============ API 路由（带速率限制）============
 // 认证相关（严格限制）
 app.use('/api/auth/login', loginLimiter);

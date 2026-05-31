@@ -36,10 +36,13 @@
 <script setup>
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { useUserStore } from '../store'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { checkVerificationWithPrompt } from '../utils/verification'
 import api from '../api'
 
 const router = useRouter()
+const userStore = useUserStore()
 const formRef = ref()
 const loading = ref(false)
 const categories = ['安防监控', '网络布线', '门禁系统', '楼宇对讲', '停车场系统', '广播系统', '综合布线', '其他']
@@ -51,6 +54,10 @@ const rules = {
 }
 
 const handleSubmit = async () => {
+  // 检查实名认证状态
+  const verified = await checkVerificationWithPrompt(userStore.user, router, { action: '发布工程' })
+  if (!verified) return
+
   await formRef.value.validate()
   loading.value = true
   try {

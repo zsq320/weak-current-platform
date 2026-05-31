@@ -79,8 +79,19 @@ router.get('/:id', optionalAuth, (req, res) => {
   res.json(project);
 });
 
-// 发布工程
+// 发布工程（需要实名认证）
 router.post('/', authMiddleware, requireRole('user'), (req, res) => {
+  // 检查实名认证
+  const user = db.prepare('SELECT real_name, phone, email, real_name_verified FROM users WHERE id = ?').get(req.user.id);
+  const isVerified = user.real_name && user.phone && user.email && user.real_name_verified;
+  if (!isVerified) {
+    return res.status(403).json({
+      error: '请先完成实名认证',
+      code: 'REAL_NAME_VERIFICATION_REQUIRED',
+      verification_url: '/profile'
+    });
+  }
+
   const { title, description, category, location, budget, deadline } = req.body;
   if (!title || !category) {
     return res.status(400).json({ error: '标题和分类不能为空' });

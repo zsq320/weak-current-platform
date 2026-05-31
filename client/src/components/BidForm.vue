@@ -190,8 +190,11 @@
 
 <script setup>
 import { ref, computed, watch } from 'vue'
+import { useRouter } from 'vue-router'
+import { useUserStore } from '../store'
 import { ElMessage } from 'element-plus'
 import { UploadFilled } from '@element-plus/icons-vue'
+import { checkVerificationWithPrompt } from '../utils/verification'
 import api from '../api'
 
 const props = defineProps({
@@ -201,6 +204,9 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['update:modelValue', 'success'])
+
+const router = useRouter()
+const userStore = useUserStore()
 
 const visible = computed({
   get: () => props.modelValue,
@@ -289,6 +295,10 @@ const handleFileChange = (file, files) => {
 
 // 提交投标
 const submitBid = async () => {
+  // 检查实名认证状态
+  const verified = await checkVerificationWithPrompt(userStore.user, router, { action: '参与投标' })
+  if (!verified) return
+
   if (!agreed.value) {
     ElMessage.warning('请先同意投标协议')
     return

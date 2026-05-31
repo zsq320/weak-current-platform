@@ -180,6 +180,28 @@ try {
   db.exec("ALTER TABLE users ADD COLUMN bank_card_encrypted TEXT");
 }
 
+// 迁移：添加实名认证字段
+try {
+  db.prepare("SELECT real_name_verified FROM users LIMIT 1").get();
+} catch (e) {
+  db.exec("ALTER TABLE users ADD COLUMN real_name_verified INTEGER DEFAULT 0");
+}
+try {
+  db.prepare("SELECT id_card_verified FROM users LIMIT 1").get();
+} catch (e) {
+  db.exec("ALTER TABLE users ADD COLUMN id_card_verified INTEGER DEFAULT 0");
+}
+try {
+  db.prepare("SELECT verified_at FROM users LIMIT 1").get();
+} catch (e) {
+  db.exec("ALTER TABLE users ADD COLUMN verified_at DATETIME");
+}
+try {
+  db.prepare("SELECT verified_by FROM users LIMIT 1").get();
+} catch (e) {
+  db.exec("ALTER TABLE users ADD COLUMN verified_by INTEGER");
+}
+
 // 项目任务表
 db.exec(`
   CREATE TABLE IF NOT EXISTS project_tasks (

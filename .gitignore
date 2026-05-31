@@ -13,3 +13,5 @@ tunnel-domain.txt
 .env
 .env.local
 .claude/
+.vscode/
+server/uploads/

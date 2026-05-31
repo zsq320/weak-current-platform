@@ -279,6 +279,25 @@
           </el-button>
         </el-card>
 
+        <!-- 未实名认证提示 -->
+        <el-card v-if="userStore.isLoggedIn && !isVerified && !isOwner && project?.status === 'bidding'">
+          <template #header><span>参与投标</span></template>
+          <el-alert
+            type="warning"
+            title="需要实名认证"
+            show-icon
+            :closable="false"
+            style="margin-bottom: 16px"
+          >
+            <template #default>
+              <p>参与投标前需要完成实名认证。</p>
+            </template>
+          </el-alert>
+          <el-button type="primary" @click="router.push('/profile')" style="width: 100%" size="large">
+            前往认证
+          </el-button>
+        </el-card>
+
         <!-- 工程操作 -->
         <el-card style="margin-top: 16px" v-if="isOwner">
           <template #header><span>工程操作</span></template>
@@ -488,7 +507,8 @@ const statusText = computed(() => statusMap[project.value?.status]?.text)
 const statusType = computed(() => statusMap[project.value?.status]?.type)
 const isOwner = computed(() => userStore.user?.id === project.value?.user_id || userStore.user?.role === 'admin')
 const hasBid = computed(() => bids.value.some(b => b.engineer_id === userStore.user?.id))
-const canBid = computed(() => userStore.isLoggedIn && !isOwner.value && project.value?.status === 'bidding' && !hasBid.value)
+const isVerified = computed(() => !!userStore.user?.real_name_verified)
+const canBid = computed(() => userStore.isLoggedIn && isVerified.value && !isOwner.value && project.value?.status === 'bidding' && !hasBid.value)
 const canReview = computed(() => {
   if (!userStore.isLoggedIn || !myContract.value || project.value?.status !== 'completed') return false
   return true

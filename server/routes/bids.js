@@ -20,8 +20,19 @@ const { logAudit } = require('../middleware/audit');
 
 const router = express.Router();
 
-// 投标（支持多字段）
+// 投标（支持多字段，需要实名认证）
 router.post('/', authMiddleware, requireRole('engineer'), (req, res) => {
+  // 检查实名认证
+  const user = db.prepare('SELECT real_name, phone, email, real_name_verified FROM users WHERE id = ?').get(req.user.id);
+  const isVerified = user.real_name && user.phone && user.email && user.real_name_verified;
+  if (!isVerified) {
+    return res.status(403).json({
+      error: '请先完成实名认证',
+      code: 'REAL_NAME_VERIFICATION_REQUIRED',
+      verification_url: '/profile'
+    });
+  }
+
   const {
     project_id, price, message, duration, duration_unit,
     qualifications, experience_years
