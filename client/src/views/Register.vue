@@ -257,7 +257,7 @@ const handleRegister = async () => {
 .rc-d{ font-size:12px;color:#64748B;margin-top:2px; }
 @media (max-width:480px){ .role-cards{ flex-direction:column; } }
 /* 全屏左右分栏（与登录页一致） */
-.login-page{ display:flex; min-height:calc(100vh - 59px); }
+.login-page{ display:flex; min-height:100vh; }
 .brand-pane{
   width:42%; flex:none; position:sticky; top:0; align-self:flex-start; height:100vh;
   background:linear-gradient(150deg,#0B2A5B 0%,#1D4ED8 65%,#0891B2 100%);
@@ -274,7 +274,7 @@ const handleRegister = async () => {
 .bp-points{ list-style:none; display:flex; flex-direction:column; gap:12px; }
 .bp-points li{ color:#DCE7FB; font-size:13.5px; padding-left:24px; position:relative; }
 .bp-points li::before{ content:"✓"; position:absolute; left:0; color:#7DD3FC; font-weight:700; }
-.form-pane{ flex:1; display:flex; justify-content:center; padding:32px 20px 60px; }
+.form-pane{ flex:1; display:flex; justify-content:center; padding:32px 20px 60px; min-height:100vh; }
 .form-pane .el-card{
   width:min(560px,100%); border:none; border-radius:14px;
   box-shadow:0 12px 32px rgba(15,42,67,.14) !important;

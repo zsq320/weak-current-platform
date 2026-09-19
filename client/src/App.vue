@@ -9,21 +9,28 @@
 // See the Mulan PSL v2 for more details.
 <template>
   <div id="app">
-    <Navbar />
-    <div class="main-container">
+    <Navbar v-if="!isAuthPage" />
+    <div class="main-container" :class="{ 'full-bleed': isAuthPage }">
       <router-view />
     </div>
   </div>
 </template>
 
 <script setup>
+import { computed } from 'vue'
+import { useRoute } from 'vue-router'
 import Navbar from './components/Navbar.vue'
+
+// 登录/注册页全屏沉浸式：隐藏顶部导航、容器全出血
+const route = useRoute()
+const isAuthPage = computed(() => ['/login', '/register'].includes(route.path))
 </script>
 
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: 'PingFang SC', 'Microsoft YaHei', 'Segoe UI', sans-serif; background: #F4F6FA; color: #334155; }
 .main-container { max-width: 1200px; margin: 0 auto; padding: 20px; min-height: calc(100vh - 60px); }
+.main-container.full-bleed { max-width: none; padding: 0; margin: 0; min-height: 100vh; }
 
 /* ============ 移动端全局适配 ============ */
 @media (max-width: 768px) {

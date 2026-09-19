@@ -52,10 +52,8 @@ router.beforeEach((to, from, next) => {
     } else {
       next()
     }
-  } else if (to.path === '/login' && token) {
-    // 已登录用户访问登录页，重定向到首页
-    next('/')
   } else {
+    // 已登录用户也可访问登录/注册页（支持切换账号），不再强制跳回首页
     next()
   }
 })
