@@ -117,7 +117,13 @@ router.get('/certifications', (req, res) => {
     } catch (e) {
       // 兼容旧数据（纯文本）
     }
-    return { ...row, certification_description: description, certification_image_count: imageCount };
+    const imageList = (() => {
+      try {
+        const parsed = JSON.parse(row.certification);
+        return Array.isArray(parsed?.images) ? parsed.images : [];
+      } catch (e) { return []; }
+    })();
+    return { ...row, certification_description: description, certification_image_count: imageCount, certification_images: imageList };
   }));
 });
 

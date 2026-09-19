@@ -142,8 +142,9 @@
             <el-table-column prop="certification_description" label="认证信息" min-width="200" show-overflow-tooltip>
               <template #default="{ row }">
                 {{ row.certification_description || '-' }}
-                <el-tag v-if="row.certification_image_count > 0" size="small" type="info" style="margin-left: 4px">
-                  {{ row.certification_image_count }} 张图片
+                <el-tag v-if="row.certification_image_count > 0" size="small" type="info" style="margin-left: 4px; cursor: pointer"
+                  @click="viewCertImages(row)">
+                  {{ row.certification_image_count }} 张图片（点击查看）
                 </el-tag>
               </template>
             </el-table-column>
@@ -319,6 +320,16 @@
         </el-card>
       </el-tab-pane>
     </el-tabs>
+
+    <!-- 认证资质图片查看 -->
+    <el-dialog v-model="certViewerVisible" title="资质认证图片" width="640px">
+      <div style="display: flex; flex-wrap: wrap; gap: 8px">
+        <el-image v-for="(img, i) in certViewerImages" :key="i" :src="img"
+          :preview-src-list="certViewerImages" :initial-index="i" fit="contain"
+          style="width: 100%; max-height: 300px; border-radius: 6px; border: 1px solid #ebeef5" />
+      </div>
+      <el-empty v-if="certViewerImages.length === 0" description="无图片" :image-size="60" />
+    </el-dialog>
   </div>
 </template>
 
@@ -530,6 +541,15 @@ const forceCancelProject = async (id) => {
     fetchProjects()
     fetchStats()
   } catch (e) {}
+}
+
+// 查看认证资质图片（/uploads/certifications 需要令牌访问）
+const certViewerVisible = ref(false)
+const certViewerImages = ref([])
+const viewCertImages = (row) => {
+  const token = localStorage.getItem('accessToken')
+  certViewerImages.value = (row.certification_images || []).map(p => `${p}?token=${encodeURIComponent(token)}`)
+  certViewerVisible.value = true
 }
 
 const handleTabChange = (tab) => {
