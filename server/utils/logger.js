@@ -37,7 +37,7 @@ const logger = {
         write('info', {
           kind: 'access',
           method: req.method,
-          path: req.originalUrl,
+          path: req.originalUrl ? req.originalUrl.split('?')[0] : req.path, // 剥离查询串，避免令牌入日志
           status: res.statusCode,
           ms: Date.now() - start,
           user_id: req.user ? req.user.id : null,

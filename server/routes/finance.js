@@ -16,7 +16,7 @@ const crypto = require('crypto');
 const db = require('../db');
 const { authMiddleware } = require('../middleware/auth');
 const { logAudit } = require('../middleware/audit');
-const { postLedger, getSetting } = require('../utils/ledger');
+const { postLedger, getSetting, getNumberSetting } = require('../utils/ledger');
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -85,6 +85,15 @@ router.post('/deposit/orders/:orderNo/confirm', (req, res) => {
 router.post('/deposit/notify', (req, res) => {
   // TODO: 验证平台证书/签名 -> 幂等处理订单 -> postLedger 入账 -> 返回渠道要求的应答
   res.status(501).json({ error: '支付回调需要先完成网关验签配置，见 docs/COMMERCIAL.md' });
+});
+
+/** 结算费率（登录即可读，供前端展示确认文案） */
+router.get('/rates', (req, res) => {
+  res.json({
+    commission_rate: getNumberSetting('commission_rate', 5),
+    retention_rate: getNumberSetting('retention_rate', 5),
+    warranty_months: getNumberSetting('warranty_months', 12)
+  });
 });
 
 /** 我的资金流水 */

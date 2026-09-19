@@ -129,6 +129,9 @@ app.use('/api/auth/login', loginLimiter);
 app.use('/api/auth/login/phone', loginLimiter);
 app.use('/api/auth/register', registerLimiter);
 app.use('/api/auth/deposit', sensitiveLimiter);
+// 密码重置链路限流：6位验证码若不限速可被暴力枚举
+app.use('/api/auth/forgot-password', sensitiveLimiter);
+app.use('/api/auth/reset-password', sensitiveLimiter);
 app.use('/api/auth', require('./routes/auth'));
 
 // 验证码（限制发送频率）

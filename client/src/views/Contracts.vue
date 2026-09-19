@@ -4,7 +4,7 @@
       <template #header>
         <div class="header-row">
           <h2 style="margin: 0">合同管理</h2>
-          <el-tag size="small" type="info">结算规则：平台服务费5% + 质保金5%（质保期12个月）</el-tag>
+          <el-tag size="small" type="info">结算规则：平台服务费{{ rates.commission_rate }}% + 质保金{{ rates.retention_rate }}%（质保期{{ rates.warranty_months }}个月）</el-tag>
         </div>
       </template>
       <el-table :data="contracts" style="width: 100%">
@@ -339,10 +339,14 @@ const saveContent = async () => {
   }
 }
 
+// 结算费率从平台设置读取，避免后台调整后文案失真
+const rates = ref({ commission_rate: 5, retention_rate: 5, warranty_months: 12 })
+api.get('/finance/rates').then(r => { rates.value = r }).catch(() => {})
+
 const completeContract = async (row) => {
   try {
     await ElMessageBox.confirm(
-      '确认完工将按合同结算：平台收取5%服务费，留存5%质保金（12个月质保期满后释放给工程师），其余划转给工程师。是否继续？',
+      `确认完工将按合同结算：平台收取服务费 ${rates.value.commission_rate}%，留存质保金 ${rates.value.retention_rate}%（质保期 ${rates.value.warranty_months} 个月期满后释放给工程师），其余划转给工程师。是否继续？`,
       '确认完工结算', { type: 'warning' }
     )
     await api.post(`/contracts/${row.id}/complete`)

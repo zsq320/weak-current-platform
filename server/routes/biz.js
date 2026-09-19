@@ -150,7 +150,11 @@ router.post('/invoices', (req, res) => {
     const { contract, error, code } = getContractWithAccess(req, contract_id);
     if (error) return res.status(code).json({ error });
     if (contract.status !== 'completed') return res.status(400).json({ error: '合同未完成结算，暂不能开票' });
-    if (amountNum > contract.amount) return res.status(400).json({ error: '开票金额不能超过合同金额' });
+    // 累计开票（待审+已审+已开）不得超过合同金额
+    const prev = db.prepare("SELECT COALESCE(SUM(amount), 0) AS s FROM invoices WHERE contract_id = ? AND status IN ('pending','approved','issued')").get(contract.id).s;
+    if (Math.round((prev + amountNum) * 100) / 100 > contract.amount + 0.001) {
+      return res.status(400).json({ error: `累计开票金额将达 ${(prev + amountNum).toFixed(2)} 元，超过合同金额 ${contract.amount} 元` });
+    }
     contractId = contract.id;
   }
 

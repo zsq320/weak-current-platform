@@ -473,6 +473,8 @@ router.post('/review-appeals/:id/process', (req, res) => {
     db.prepare('UPDATE review_appeals SET status = ?, handled_by = ?, handled_at = CURRENT_TIMESTAMP WHERE id = ?')
       .run(action === 'revoke' ? 'approved' : 'rejected', req.user.id, ra.id);
     if (action === 'revoke') {
+      // 先删引用该评价的申诉记录，避免外键约束导致删除失败
+      db.prepare('DELETE FROM review_appeals WHERE review_id = ?').run(ra.review_id);
       db.prepare('DELETE FROM reviews WHERE id = ?').run(ra.review_id);
     }
   })();
