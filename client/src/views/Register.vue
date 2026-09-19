@@ -1,5 +1,5 @@
 <template>
-  <main class="auth-page auth-page-register"><img class="auth-bg" src="/assets/cas-login-bg.jpg" alt="" />
+  <main class="auth-page auth-page-register"><img class="auth-bg" src="/assets/auth-bg-weakcurrent.svg" alt="" />
     <div class="auth-mask" />
 
     <section class="auth-card">
@@ -14,7 +14,7 @@
         <p>选择身份，加入工程协同平台</p>
       </div>
 
-      <el-form :model="form" @submit.prevent="handleRegister" label-position="top">
+      <el-form class="cas-auth-form" :model="form" @submit.prevent="handleRegister" label-position="top">
         <div class="form-group">账号信息</div>
 
         <el-form-item label="用户名" required>

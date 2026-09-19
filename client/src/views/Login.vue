@@ -1,6 +1,6 @@
 <template>
   <main class="auth-page">
-    <img class="auth-bg" src="/assets/cas-login-bg.jpg" alt="" />
+    <img class="auth-bg" src="/assets/auth-bg-weakcurrent.svg" alt="" />
     <div class="auth-mask" />
 
     <section class="auth-card auth-card-no-heading" aria-label="登录">

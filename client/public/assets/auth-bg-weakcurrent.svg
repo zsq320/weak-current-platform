@@ -1,0 +1,132 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1088" viewBox="0 0 1920 1088" font-family="sans-serif">
+  <!-- 弱电工程管理平台 · 认证页背景：综合布线 / 网络机房主题 -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0B2A5B"/>
+      <stop offset=".55" stop-color="#123B72"/>
+      <stop offset="1" stop-color="#0A4A63"/>
+    </linearGradient>
+    <linearGradient id="cable1" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#2563EB" stop-opacity=".9"/>
+      <stop offset="1" stop-color="#0891B2" stop-opacity=".55"/>
+    </linearGradient>
+    <linearGradient id="cable2" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#0891B2" stop-opacity=".8"/>
+      <stop offset="1" stop-color="#16A34A" stop-opacity=".4"/>
+    </linearGradient>
+    <linearGradient id="rack" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1B4A85"/>
+      <stop offset="1" stop-color="#0E2C50"/>
+    </linearGradient>
+    <radialGradient id="glow1" cx=".5" cy=".5" r=".5">
+      <stop offset="0" stop-color="#38BDF8" stop-opacity=".35"/>
+      <stop offset="1" stop-color="#38BDF8" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow2" cx=".5" cy=".5" r=".5">
+      <stop offset="0" stop-color="#2563EB" stop-opacity=".4"/>
+      <stop offset="1" stop-color="#2563EB" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="grid" width="44" height="44" patternUnits="userSpaceOnUse">
+      <path d="M44 0H0V44" fill="none" stroke="#7FB6E8" stroke-opacity=".07"/>
+    </pattern>
+    <pattern id="ports" width="26" height="18" patternUnits="userSpaceOnUse">
+      <rect x="4" y="4" width="18" height="9" rx="1.5" fill="#0A1E38" stroke="#3E7FB8" stroke-opacity=".55"/>
+      <circle cx="9" cy="8.5" r="1.4" fill="#4ADE80" fill-opacity=".8"/>
+      <circle cx="16" cy="8.5" r="1.4" fill="#FBBF24" fill-opacity=".55"/>
+    </pattern>
+  </defs>
+
+  <rect width="1920" height="1088" fill="url(#bg)"/>
+  <rect width="1920" height="1088" fill="url(#grid)"/>
+
+  <!-- 光晕 -->
+  <circle cx="380" cy="300" r="420" fill="url(#glow2)"/>
+  <circle cx="1500" cy="880" r="480" fill="url(#glow1)" opacity=".7"/>
+
+  <!-- ===== 网络拓扑连线（左区） ===== -->
+  <g stroke="#5EA8E8" stroke-opacity=".38" fill="none" stroke-width="1.6">
+    <path d="M120 210 L360 130 L640 220 L520 380 L120 210"/>
+    <path d="M360 130 L700 90 L900 260 L640 220"/>
+    <path d="M520 380 L860 430 L900 260"/>
+    <path d="M120 210 L260 520 L520 380"/>
+    <path d="M260 520 L610 640 L860 430"/>
+    <path d="M610 640 L420 830 L180 700 L260 520"/>
+    <path d="M610 640 L780 860 L420 830"/>
+  </g>
+  <g fill="#8FC6F5">
+    <circle cx="120" cy="210" r="7" fill="#2563EB" stroke="#BFD9F8" stroke-width="2"/>
+    <circle cx="360" cy="130" r="6" fill="#0EA5E9" stroke="#BFD9F8" stroke-width="2"/>
+    <circle cx="640" cy="220" r="7" fill="#16A34A" stroke="#BFD9F8" stroke-width="2"/>
+    <circle cx="700" cy="90" r="5" fill="#8FC6F5" stroke="#BFD9F8" stroke-width="1.6"/>
+    <circle cx="900" cy="260" r="6" fill="#0EA5E9" stroke="#BFD9F8" stroke-width="2"/>
+    <circle cx="520" cy="380" r="8" fill="#2563EB" stroke="#DCEBFB" stroke-width="2.4"/>
+    <circle cx="860" cy="430" r="5" fill="#8FC6F5" stroke="#BFD9F8" stroke-width="1.6"/>
+    <circle cx="260" cy="520" r="6" fill="#0EA5E9" stroke="#BFD9F8" stroke-width="2"/>
+    <circle cx="610" cy="640" r="7" fill="#16A34A" stroke="#BFD9F8" stroke-width="2"/>
+    <circle cx="420" cy="830" r="5" fill="#8FC6F5" stroke="#BFD9F8" stroke-width="1.6"/>
+    <circle cx="180" cy="700" r="5" fill="#8FC6F5" stroke="#BFD9F8" stroke-width="1.6"/>
+    <circle cx="780" cy="860" r="6" fill="#0EA5E9" stroke="#BFD9F8" stroke-width="2"/>
+  </g>
+  <!-- 节点脉冲外圈 -->
+  <g fill="none" stroke="#5EA8E8" stroke-opacity=".35">
+    <circle cx="520" cy="380" r="16"/>
+    <circle cx="520" cy="380" r="26" stroke-opacity=".18"/>
+    <circle cx="610" cy="640" r="14"/>
+    <circle cx="120" cy="210" r="14"/>
+  </g>
+
+  <!-- ===== 服务器机柜（左侧剪影） ===== -->
+  <g>
+    <rect x="64" y="620" width="190" height="430" rx="8" fill="url(#rack)" stroke="#3E7FB8" stroke-opacity=".5"/>
+    <rect x="82" y="640" width="154" height="52" rx="3" fill="url(#ports)"/>
+    <rect x="82" y="700" width="154" height="52" rx="3" fill="url(#ports)"/>
+    <rect x="82" y="760" width="154" height="60" rx="3" fill="#0A1E38" stroke="#3E7FB8" stroke-opacity=".4"/>
+    <rect x="94" y="772" width="130" height="5" rx="2.5" fill="#2563EB" fill-opacity=".7"/>
+    <rect x="94" y="784" width="100" height="5" rx="2.5" fill="#0891B2" fill-opacity=".6"/>
+    <rect x="94" y="796" width="115" height="5" rx="2.5" fill="#16A34A" fill-opacity=".5"/>
+    <rect x="82" y="828" width="154" height="52" rx="3" fill="url(#ports)"/>
+    <rect x="82" y="888" width="154" height="52" rx="3" fill="#0A1E38" stroke="#3E7FB8" stroke-opacity=".4"/>
+    <circle cx="106" cy="914" r="4" fill="#4ADE80" fill-opacity=".9"/>
+    <circle cx="126" cy="914" r="4" fill="#FBBF24" fill-opacity=".7"/>
+    <rect x="82" y="948" width="154" height="52" rx="3" fill="url(#ports)"/>
+    <rect x="82" y="1006" width="154" height="30" rx="3" fill="#0A1E38" stroke="#3E7FB8" stroke-opacity=".4"/>
+
+    <rect x="276" y="700" width="170" height="350" rx="8" fill="url(#rack)" stroke="#3E7FB8" stroke-opacity=".42"/>
+    <rect x="294" y="720" width="134" height="46" rx="3" fill="url(#ports)"/>
+    <rect x="294" y="774" width="134" height="46" rx="3" fill="#0A1E38" stroke="#3E7FB8" stroke-opacity=".4"/>
+    <rect x="304" y="786" width="114" height="5" rx="2.5" fill="#0891B2" fill-opacity=".65"/>
+    <rect x="304" y="798" width="88" height="5" rx="2.5" fill="#2563EB" fill-opacity=".6"/>
+    <rect x="294" y="828" width="134" height="46" rx="3" fill="url(#ports)"/>
+    <rect x="294" y="882" width="134" height="46" rx="3" fill="#0A1E38" stroke="#3E7FB8" stroke-opacity=".4"/>
+    <circle cx="316" cy="905" r="4" fill="#4ADE80" fill-opacity=".9"/>
+    <rect x="294" y="936" width="134" height="46" rx="3" fill="url(#ports)"/>
+    <rect x="294" y="990" width="134" height="26" rx="3" fill="#0A1E38" stroke="#3E7FB8" stroke-opacity=".4"/>
+  </g>
+
+  <!-- ===== 桥架走线（横贯中部的 cable bundle） ===== -->
+  <g fill="none" stroke-linecap="round">
+    <path d="M0 540 C 300 500, 560 620, 860 560 S 1400 480, 1920 560" stroke="url(#cable1)" stroke-width="10" stroke-opacity=".55"/>
+    <path d="M0 566 C 320 530, 580 648, 880 588 S 1420 512, 1920 588" stroke="url(#cable2)" stroke-width="7" stroke-opacity=".5"/>
+    <path d="M0 592 C 340 560, 600 676, 900 616 S 1440 544, 1920 616" stroke="#2563EB" stroke-width="4" stroke-opacity=".4"/>
+    <path d="M0 614 C 360 586, 620 700, 920 642 S 1460 572, 1920 642" stroke="#0891B2" stroke-width="3" stroke-opacity=".35"/>
+  </g>
+
+  <!-- ===== 监控摄像头（右上剪影） ===== -->
+  <g opacity=".85">
+    <rect x="1560" y="120" width="120" height="46" rx="10" fill="#123B72" stroke="#3E7FB8" stroke-opacity=".6" transform="rotate(14 1560 120)"/>
+    <circle cx="1682" cy="152" r="15" fill="#0A1E38" stroke="#5EA8E8" stroke-opacity=".7" transform="rotate(14 1560 120)"/>
+    <circle cx="1682" cy="152" r="6" fill="#38BDF8" fill-opacity=".9" transform="rotate(14 1560 120)"/>
+    <rect x="1540" y="96" width="8" height="60" rx="3" fill="#1B4A85" stroke="#3E7FB8" stroke-opacity=".5"/>
+    <path d="M1700 170 L1810 260" stroke="#F43F5E" stroke-opacity=".28" stroke-width="2" stroke-dasharray="6 8"/>
+  </g>
+
+  <!-- ===== 右下角弱电符号水印 ===== -->
+  <g opacity=".16" stroke="#BFD9F8" fill="none" stroke-width="3">
+    <circle cx="1700" cy="940" r="60"/>
+    <path d="M1700 880 v-28 M1700 1000 v28 M1640 940 h-28 M1760 940 h28"/>
+    <path d="M1655 895 l-20 -20 M1745 895 l20 -20 M1655 985 l-20 20 M1745 985 l20 20"/>
+  </g>
+
+  <!-- 右侧柔和压暗，保证卡片区域文字可读 -->
+  <rect x="1180" y="0" width="740" height="1088" fill="#0B2A5B" opacity=".28"/>
+</svg>
