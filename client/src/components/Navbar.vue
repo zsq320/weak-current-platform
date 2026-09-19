@@ -66,7 +66,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '../store'
 import { Monitor, Bell, UserFilled } from '@element-plus/icons-vue'
@@ -87,6 +87,45 @@ const fetchUnread = async () => {
 
 onMounted(fetchUnread)
 watch(() => route.path, fetchUnread)
+
+// ============ SSE 实时未读通知（后端 /api/notify/stream 每5秒推送未读数） ============
+let sseSource = null
+let sseRetryTimer = null
+
+const connectSSE = () => {
+  if (sseSource || !userStore.isLoggedIn) return
+  const token = localStorage.getItem('accessToken')
+  if (!token) return
+  try {
+    sseSource = new EventSource(`/api/notify/stream?token=${encodeURIComponent(token)}`)
+    sseSource.addEventListener('unread', (e) => {
+      try {
+        const data = JSON.parse(e.data)
+        unreadCount.value = data.count ?? unreadCount.value
+      } catch (err) { /* 忽略 */ }
+    })
+    sseSource.onerror = () => {
+      // 断线重连（15秒退避）；EventSource 自身也会重连，这里兜底重建
+      sseSource.close()
+      sseSource = null
+      clearTimeout(sseRetryTimer)
+      sseRetryTimer = setTimeout(connectSSE, 15000)
+    }
+  } catch (err) { /* 浏览器不支持则退化为路由切换时轮询 */ }
+}
+
+watch(() => userStore.isLoggedIn, (v) => {
+  if (v) connectSSE()
+  else if (sseSource) { sseSource.close(); sseSource = null }
+})
+
+onMounted(() => {
+  if (userStore.isLoggedIn) connectSSE()
+})
+onBeforeUnmount(() => {
+  clearTimeout(sseRetryTimer)
+  if (sseSource) sseSource.close()
+})
 
 const handleCommand = (cmd) => {
   if (cmd === 'logout') {

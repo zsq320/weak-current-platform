@@ -49,13 +49,49 @@
         </el-button>
       </el-form>
 
-      <div class="auth-link">还没有账号？<router-link to="/register">立即注册</router-link></div>
+      <div class="auth-link">
+        <router-link to="/register" style="margin-right: 12px">还没有账号？立即注册</router-link>
+        <el-button link type="primary" @click="forgotVisible = true">忘记密码？</el-button>
+      </div>
+
+      <!-- 忘记密码（QQ邮箱验证码重置） -->
+      <el-dialog v-model="forgotVisible" title="找回密码" width="440px">
+        <el-steps :active="forgotStep" simple style="margin-bottom: 16px">
+          <el-step title="验证邮箱" />
+          <el-step title="设置新密码" />
+        </el-steps>
+        <el-form v-if="forgotStep === 0" label-position="top">
+          <el-form-item label="注册邮箱">
+            <el-input v-model="forgotForm.email" placeholder="请输入注册时绑定的邮箱" />
+          </el-form-item>
+          <el-form-item label="邮箱验证码">
+            <el-row :gutter="10">
+              <el-col :span="14"><el-input v-model="forgotForm.code" placeholder="6位验证码" maxlength="6" /></el-col>
+              <el-col :span="10">
+                <el-button style="width: 100%" :loading="forgotSending" @click="sendForgotCode">
+                  {{ forgotCountdown > 0 ? `${forgotCountdown}s` : '获取验证码' }}
+                </el-button>
+              </el-col>
+            </el-row>
+          </el-form-item>
+        </el-form>
+        <el-form v-else label-position="top">
+          <el-form-item label="新密码">
+            <el-input v-model="forgotForm.new_password" type="password" show-password placeholder="至少6位，含字母和数字" />
+          </el-form-item>
+        </el-form>
+        <template #footer>
+          <el-button @click="forgotVisible = false">取消</el-button>
+          <el-button v-if="forgotStep === 0" type="primary" :disabled="!forgotForm.code" @click="forgotStep = 1">下一步</el-button>
+          <el-button v-else type="primary" :loading="forgotLoading" @click="doResetPassword">重置密码</el-button>
+        </template>
+      </el-dialog>
     </el-card>
   </div>
 </template>
 
 <script setup>
-import { reactive, ref, computed } from 'vue'
+import { reactive, ref, computed, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '../store'
 import { ElMessage } from 'element-plus'
@@ -67,6 +103,58 @@ const loading = ref(false)
 const sending = ref(false)
 const countdown = ref(0)
 const loginType = ref('password')
+
+// ============ 忘记密码 ============
+const forgotVisible = ref(false)
+const forgotStep = ref(0)
+const forgotSending = ref(false)
+const forgotLoading = ref(false)
+const forgotCountdown = ref(0)
+const forgotForm = reactive({ email: '', code: '', new_password: '' })
+let forgotTimer = null
+
+const startForgotCountdown = () => {
+  forgotCountdown.value = 60
+  forgotTimer = setInterval(() => {
+    forgotCountdown.value--
+    if (forgotCountdown.value <= 0) clearInterval(forgotTimer)
+  }, 1000)
+}
+
+const sendForgotCode = async () => {
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(forgotForm.email)) {
+    return ElMessage.warning('请输入有效的邮箱地址')
+  }
+  forgotSending.value = true
+  try {
+    await api.post('/auth/forgot-password', { email: forgotForm.email })
+    ElMessage.success('验证码已发送，请查收邮件')
+    startForgotCountdown()
+  } catch (e) {
+    ElMessage.error(e.response?.data?.error || '发送失败')
+  } finally {
+    forgotSending.value = false
+  }
+}
+
+const doResetPassword = async () => {
+  if (!/^(?=.*[A-Za-z])(?=.*\d).{6,}$/.test(forgotForm.new_password)) {
+    return ElMessage.warning('新密码需至少6位且包含字母和数字')
+  }
+  forgotLoading.value = true
+  try {
+    await api.post('/auth/reset-password', forgotForm)
+    ElMessage.success('密码已重置，请使用新密码登录')
+    forgotVisible.value = false
+    forgotStep.value = 0
+  } catch (e) {
+    ElMessage.error(e.response?.data?.error || '重置失败')
+  } finally {
+    forgotLoading.value = false
+  }
+}
+
+onBeforeUnmount(() => clearInterval(forgotTimer))
 
 const pwdForm = reactive({ username: '', password: '' })
 const phoneForm = reactive({ phone: '', code: '' })

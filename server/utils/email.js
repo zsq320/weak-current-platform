@@ -16,15 +16,25 @@
 const nodemailer = require('nodemailer');
 
 // 创建邮件传输器
+// QQ邮箱SMTP：需在 .env 配置 SMTP_USER（QQ邮箱地址）与 SMTP_PASS（授权码，非QQ密码）
+// 授权码获取：QQ邮箱 -> 设置 -> 账号 -> 开启SMTP服务 -> 生成授权码
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || 'smtp.qq.com',
   port: parseInt(process.env.SMTP_PORT || '465'),
   secure: true, // true for 465, false for other ports
+  connectionTimeout: 10000,
+  greetingTimeout: 8000,
+  socketTimeout: 15000,
   auth: {
     user: process.env.SMTP_USER || '',
     pass: process.env.SMTP_PASS || '' // 授权码，非密码
   }
 });
+
+// 邮件渠道是否已配置（供渠道探测接口使用）
+function isEmailConfigured() {
+  return !!(process.env.SMTP_USER && process.env.SMTP_PASS);
+}
 
 // HTML 邮件模板
 function getEmailTemplate(code, purpose = 'register') {
@@ -95,4 +105,4 @@ async function sendEmail(to, code, purpose = 'register') {
   }
 }
 
-module.exports = { sendEmail, getEmailTemplate };
+module.exports = { sendEmail, getEmailTemplate, isEmailConfigured };

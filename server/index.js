@@ -95,6 +95,23 @@ app.use(express.static(path.join(__dirname, '..', 'client', 'dist'), {
 }));
 
 // 上传文件目录
+// 身份证/资质等敏感目录必须带有效令牌访问（支持 Authorization 头或 ?token= 查询参数，后者供 <img> 使用）
+app.use('/uploads/certifications', (req, res, next) => {
+  const jwt = require('jsonwebtoken');
+  const authDb = require('./db');
+  const authHeader = req.headers.authorization || '';
+  const queryToken = req.query.token || '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : String(queryToken);
+  try {
+    const payload = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ['HS256'] });
+    const blacklisted = authDb.prepare('SELECT id FROM token_blacklist WHERE jti = ?').get(payload.jti || '');
+    if (blacklisted) throw new Error('blacklisted');
+    req.uploadUser = payload;
+    next();
+  } catch (e) {
+    res.status(401).json({ error: '访问认证材料需要登录凭证' });
+  }
+});
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // ============ API 路由（带速率限制）============
@@ -163,6 +180,11 @@ function recordPlatformIncomeRefund(c) {
 }
 setInterval(releaseDueRetentions, 60 * 60 * 1000); // 每小时检查一次
 releaseDueRetentions();
+
+// API 未匹配路径返回 JSON（避免被 SPA 兜底成 HTML，前端报错难排查）
+app.all('/api/*', (req, res) => {
+  res.status(404).json({ error: '接口不存在', path: req.originalUrl });
+});
 
 // 前端路由回退
 app.get('*', (req, res) => {

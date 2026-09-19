@@ -700,11 +700,128 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_pfiles_project ON project_files(project_id);
 `);
 
+// 迁移：工程现场坐标（GPS 打卡电子围栏，选填）
+['site_lat REAL', 'site_lng REAL', 'site_radius INTEGER'].forEach(colDef => {
+  const [name] = colDef.split(' ');
+  try {
+    db.prepare(`SELECT ${name} FROM projects LIMIT 1`).get();
+  } catch (e) {
+    db.exec(`ALTER TABLE projects ADD COLUMN ${colDef}`);
+  }
+});
+
 // 迁移：实名认证增加身份证校验位标记
 try {
   db.prepare("SELECT id_checksum_valid FROM users LIMIT 1").get();
 } catch (e) {
   db.exec("ALTER TABLE users ADD COLUMN id_checksum_valid INTEGER DEFAULT 0");
+}
+
+// 迁移：verification_codes 支持 'reset'（忘记密码）用途——重建表放宽 CHECK 约束
+try {
+  const vcSql = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='verification_codes'").get();
+  if (vcSql && !/''reset''|'reset'/i.test(vcSql.sql.replace(/''/g, "'"))) {
+    const hasReset = /reset/.test(vcSql.sql);
+    if (!hasReset) {
+      const migrateVc = db.transaction(() => {
+        db.exec(`
+          CREATE TABLE verification_codes_new (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            target TEXT NOT NULL,
+            type TEXT NOT NULL CHECK(type IN ('phone', 'email')),
+            code TEXT NOT NULL,
+            purpose TEXT NOT NULL DEFAULT 'register' CHECK(purpose IN ('register', 'login', 'reset')),
+            expires_at DATETIME NOT NULL,
+            used INTEGER DEFAULT 0,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+          );
+          INSERT INTO verification_codes_new (id, target, type, code, purpose, expires_at, used, created_at)
+            SELECT id, target, type, code, purpose, expires_at, used, created_at FROM verification_codes;
+          DROP TABLE verification_codes;
+          ALTER TABLE verification_codes_new RENAME TO verification_codes;
+          CREATE INDEX IF NOT EXISTS idx_verification_target ON verification_codes(target, type, purpose);
+        `);
+      });
+      migrateVc();
+      console.log('[迁移] verification_codes 表已支持 reset 用途');
+    }
+  }
+} catch (e) {
+  console.error('[迁移] verification_codes 重建失败:', e.message);
+}
+
+// 迁移：上市硬化——强制竣工验收 + 强制双方签署（一次性行为，管理员可在后台改回）
+try {
+  const hardened = db.prepare("SELECT value FROM settings WHERE key = 'hardening_applied'").get();
+  if (!hardened) {
+    db.prepare("UPDATE settings SET value = '1' WHERE key IN ('require_final_acceptance', 'require_both_signatures')").run();
+    db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('hardening_applied', '1')").run();
+    console.log('[迁移] 已默认开启：竣工验收强制 + 双方签署强制（后台可调）');
+  }
+} catch (e) {
+  console.error('[迁移] 设置硬化失败:', e.message);
+}
+
+// 迁移：加密密钥轮换——使用 ENCRYPTION_KEY_OLD 解密旧数据，用新 ENCRYPTION_KEY 重新加密
+// 触发条件：.env 同时存在 ENCRYPTION_KEY_OLD 与 settings 未记录当前密钥指纹
+try {
+  const crypto = require('crypto');
+  const OLD_KEY = process.env.ENCRYPTION_KEY_OLD;
+  if (OLD_KEY) {
+    const fingerprint = crypto.createHash('sha256').update(process.env.ENCRYPTION_KEY || '').digest('hex').slice(0, 16);
+    const recorded = db.prepare("SELECT value FROM settings WHERE key = 'encryption_key_fingerprint'").get();
+    if (!recorded || recorded.value !== fingerprint) {
+      const derive = (k) => crypto.scryptSync(k, 'salt', 32);
+      const newKey = derive(process.env.ENCRYPTION_KEY);
+      const oldKey = derive(OLD_KEY);
+      const dec = (text, key) => {
+        const parts = String(text).split(':');
+        const iv = Buffer.from(parts[0], 'hex');
+        const authTag = Buffer.from(parts[1], 'hex');
+        const cipherText = parts[2];
+        const d = crypto.createDecipheriv('aes-256-gcm', key, iv);
+        d.setAuthTag(authTag);
+        return Buffer.concat([d.update(Buffer.from(cipherText, 'hex')), d.final()]).toString('utf8');
+      };
+      const enc = (text, key) => {
+        const iv = crypto.randomBytes(16);
+        const c = crypto.createCipheriv('aes-256-gcm', key, iv);
+        const ct = Buffer.concat([c.update(String(text), 'utf8'), c.final()]);
+        return `${iv.toString('hex')}:${c.getAuthTag().toString('hex')}:${ct.toString('hex')}`;
+      };
+      const rows = db.prepare('SELECT id, id_card_encrypted, bank_card_encrypted FROM users WHERE id_card_encrypted IS NOT NULL OR bank_card_encrypted IS NOT NULL').all();
+      const rotateTx = db.transaction(() => {
+        let rotated = 0;
+        rows.forEach(r => {
+          const upd = {};
+          try {
+            if (r.id_card_encrypted) upd.id = enc(dec(r.id_card_encrypted, oldKey), newKey);
+            if (r.bank_card_encrypted) upd.bank = enc(dec(r.bank_card_encrypted, oldKey), newKey);
+          } catch (err) {
+            // 用新密钥解不开说明已是新格式；用旧密钥也解不开说明数据异常，跳过
+            try {
+              if (r.id_card_encrypted) dec(r.id_card_encrypted, newKey);
+              if (r.bank_card_encrypted) dec(r.bank_card_encrypted, newKey);
+              return; // 已是新密钥加密
+            } catch (e2) {
+              console.error(`[迁移] 用户#${r.id} 密文无法解密，跳过`);
+              return;
+            }
+          }
+          db.prepare('UPDATE users SET id_card_encrypted = ?, bank_card_encrypted = ? WHERE id = ?')
+            .run(upd.id !== undefined ? upd.id : r.id_card_encrypted,
+                 upd.bank !== undefined ? upd.bank : r.bank_card_encrypted, r.id);
+          rotated++;
+        });
+        return rotated;
+      });
+      const n = rotateTx();
+      db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('encryption_key_fingerprint', ?)").run(fingerprint);
+      if (n > 0) console.log(`[迁移] 加密密钥已轮换，重新加密 ${n} 个用户的敏感数据`);
+    }
+  }
+} catch (e) {
+  console.error('[迁移] 加密密钥轮换失败:', e.message);
 }
 
 // 迁移：为升级前已结算的历史合同补录资金流水（升级前为全额划转，无佣金/质保金）

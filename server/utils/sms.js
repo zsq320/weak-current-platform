@@ -60,12 +60,12 @@ async function sendMock(phone, code) {
  */
 async function sendSMS(phone, code) {
   if (SMS_API_URL) {
+    // 已配置真实网关：失败必须显式报错，禁止静默降级到 mock（否则生产故障不可见）
     try {
       return await sendViaGenericGateway(phone, `【弱电工程管理平台】您的验证码为 ${code}，5分钟内有效，请勿泄露。`);
     } catch (err) {
-      console.error('[sms] 网关发送失败，回退 mock:', err.message);
-      // 网关故障时回退 mock，保证验证码流程可用（生产应告警）
-      return await sendMock(phone, code);
+      console.error('[sms] 网关发送失败:', err.message);
+      return { success: false, channel: 'gateway', error: '短信网关发送失败：' + err.message };
     }
   }
   return await sendMock(phone, code);

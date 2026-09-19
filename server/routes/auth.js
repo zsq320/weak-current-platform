@@ -25,6 +25,8 @@ const {
 } = require('../middleware/auth');
 const { logAudit } = require('../middleware/audit');
 const { validateIdCard } = require('../utils/idcard');
+const { sendEmail, isEmailConfigured } = require('../utils/email');
+const { sendSMS } = require('../utils/sms');
 const { postLedger } = require('../utils/ledger');
 const { validateRegister, validatePhoneLogin } = require('../middleware/validation');
 const {
@@ -85,16 +87,21 @@ router.post('/register', validateRegister, (req, res) => {
   const registerRole = ['user', 'engineer'].includes(role) ? role : 'user';
 
   // 验证手机号验证码
-  const phoneVerification = db.prepare(`
+  let phoneVerification = db.prepare(`
     SELECT * FROM verification_codes
     WHERE target = ? AND type = 'phone' AND purpose = 'register' AND used = 0
     ORDER BY created_at DESC LIMIT 1
   `).get(phone);
 
-  if (!phoneVerification || phoneVerification.code !== phone_code) {
+  // 短信网关未配置时允许降级：跳过手机验证码，phone_verified=0（注册后可在 profile 补验）
+  const smsConfigured = !!process.env.SMS_API_URL;
+  let effectivePhoneVerification = phoneVerification;
+  if (!smsConfigured && !phone_code) {
+    effectivePhoneVerification = null; // 未配置短信网关时允许降级
+  } else if (!phoneVerification || phoneVerification.code !== phone_code) {
     return res.status(400).json({ error: '手机验证码错误' });
   }
-  if (new Date(phoneVerification.expires_at) < new Date()) {
+  if (effectivePhoneVerification && new Date(effectivePhoneVerification.expires_at) < new Date()) {
     return res.status(400).json({ error: '手机验证码已过期' });
   }
 
@@ -134,11 +141,13 @@ router.post('/register', validateRegister, (req, res) => {
   const password_hash = bcrypt.hashSync(password, 10);
   const result = db.prepare(`
     INSERT INTO users (username, password_hash, role, real_name, phone, email, phone_verified, email_verified)
-    VALUES (?, ?, ?, ?, ?, ?, 1, 1)
-  `).run(username, password_hash, registerRole, real_name, phone, email);
+    VALUES (?, ?, ?, ?, ?, ?, ?, 1)
+  `).run(username, password_hash, registerRole, real_name, phone, email, effectivePhoneVerification ? 1 : 0);
 
   // 标记验证码已使用
-  db.prepare('UPDATE verification_codes SET used = 1 WHERE id = ?').run(phoneVerification.id);
+  if (effectivePhoneVerification) {
+    db.prepare('UPDATE verification_codes SET used = 1 WHERE id = ?').run(effectivePhoneVerification.id);
+  }
   db.prepare('UPDATE verification_codes SET used = 1 WHERE id = ?').run(emailVerification.id);
 
   // 生成令牌对（访问令牌 + 刷新令牌）
@@ -543,7 +552,7 @@ router.get('/can-bid', authMiddleware, (req, res) => {
 });
 
 // 发送验证码（用于修改密码）
-router.post('/send-verify-code', authMiddleware, (req, res) => {
+router.post('/send-verify-code', authMiddleware, async (req, res) => {
   const { type } = req.body; // type: 'phone' 或 'email'
 
   const user = db.prepare('SELECT phone, email FROM users WHERE id = ?').get(req.user.id);
@@ -577,8 +586,14 @@ router.post('/send-verify-code', authMiddleware, (req, res) => {
       VALUES (?, ?, ?, 'login', ?, 0)
     `).run(code, 'phone', user.phone, expiresAt);
 
-    // TODO: 实际发送短信
-    console.log(`[验证码] 手机号 ${user.phone} 的验证码是: ${code}`);
+    // 真实发送短信；未配置网关时明确报错引导改用邮箱验证
+    const smsResult = await sendSMS(user.phone, code);
+    if (!smsResult || !smsResult.success) {
+      return res.status(502).json({
+        error: '短信发送失败：' + ((smsResult && smsResult.error) || '短信通道未配置')
+          + '。请改用「邮箱验证码」方式。'
+      });
+    }
 
     // 验证码仅允许在非生产环境返回给前端
     res.json({ message: '验证码已发送', ...(process.env.NODE_ENV !== 'production' && { code }) });
@@ -592,10 +607,13 @@ router.post('/send-verify-code', authMiddleware, (req, res) => {
       VALUES (?, ?, ?, 'login', ?, 0)
     `).run(code, 'email', user.email, expiresAt);
 
-    // TODO: 实际发送邮件
-    console.log(`[验证码] 邮箱 ${user.email} 的验证码是: ${code}`);
+    // 通过 QQ 邮箱 SMTP 真实发送
+    const mailResult = await sendEmail(user.email, code, 'login');
+    if (!mailResult || !mailResult.success) {
+      return res.status(502).json({ error: '邮件发送失败：' + ((mailResult && mailResult.error) || 'SMTP服务不可用') });
+    }
 
-    res.json({ message: '验证码已发送', ...(process.env.NODE_ENV !== 'production' && { code }) });
+    res.json({ message: '验证码已发送至您的邮箱，请查收', ...(process.env.NODE_ENV !== 'production' && { code }) });
   } else {
     res.status(400).json({ error: '无效的验证类型' });
   }
@@ -687,6 +705,117 @@ router.post('/avatar', authMiddleware, avatarUpload.single('avatar'), (req, res)
   db.prepare('UPDATE users SET avatar = ? WHERE id = ?').run(avatarPath, req.user.id);
 
   res.json({ message: '头像上传成功', avatar: avatarPath });
+});
+
+
+// ============ 忘记密码（未登录，通过QQ邮箱验证码重置） ============
+const EMAIL_REGEX_RESET = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+router.post('/forgot-password', async (req, res) => {
+  const { email } = req.body;
+  if (!email || !EMAIL_REGEX_RESET.test(String(email))) {
+    return res.status(400).json({ error: '请输入有效的邮箱地址' });
+  }
+  if (!isEmailConfigured()) {
+    return res.status(503).json({ error: '邮箱服务未配置，请联系管理员重置密码' });
+  }
+
+  const user = db.prepare('SELECT id, username FROM users WHERE email = ? AND is_disabled = 0').get(String(email).trim());
+  // 用户不存在也返回成功（防止邮箱枚举探测）
+  if (!user) {
+    return res.json({ message: '如果该邮箱已注册，重置验证码已发送，请查收邮件' });
+  }
+
+  const code = Math.random().toString().slice(2, 8);
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+  db.prepare(`
+    INSERT INTO verification_codes (code, type, target, purpose, expires_at, used)
+    VALUES (?, 'email', ?, 'reset', ?, 0)
+  `).run(code, String(email).trim(), expiresAt);
+
+  const mailResult = await sendEmail(String(email).trim(), code, 'login');
+  if (!mailResult || !mailResult.success) {
+    return res.status(502).json({ error: '邮件发送失败：' + ((mailResult && mailResult.error) || 'SMTP服务不可用') });
+  }
+  logAudit(user.id, 'forgot_password_request', 'user', user.id, null, req.ip);
+  res.json({ message: '重置验证码已发送至您的邮箱，请查收（10分钟内有效）' });
+});
+
+router.post('/reset-password', (req, res) => {
+  const { email, code, new_password } = req.body;
+  if (!email || !code || !new_password) {
+    return res.status(400).json({ error: '请填写完整信息' });
+  }
+  if (!/^(?=.*[A-Za-z])(?=.*\d).{6,}$/.test(String(new_password))) {
+    return res.status(400).json({ error: '新密码需至少6位且包含字母和数字' });
+  }
+
+  const codeRecord = db.prepare(`
+    SELECT id FROM verification_codes
+    WHERE code = ? AND type = 'email' AND target = ? AND purpose = 'reset' AND used = 0 AND expires_at > datetime('now')
+    ORDER BY id DESC LIMIT 1
+  `).get(String(code), String(email).trim());
+  if (!codeRecord) {
+    return res.status(400).json({ error: '验证码错误或已过期' });
+  }
+
+  const user = db.prepare('SELECT id FROM users WHERE email = ? AND is_disabled = 0').get(String(email).trim());
+  if (!user) return res.status(404).json({ error: '账号不存在' });
+
+  const password_hash = bcrypt.hashSync(String(new_password), 10);
+  const resetTx = db.transaction(() => {
+    db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(password_hash, user.id);
+    db.prepare('UPDATE verification_codes SET used = 1 WHERE id = ?').run(codeRecord.id);
+  });
+  resetTx();
+  logAudit(user.id, 'reset_password', 'user', user.id, null, req.ip);
+  res.json({ message: '密码已重置，请使用新密码登录' });
+});
+
+// ============ 账号注销（《个人信息保护法》合规） ============
+// 逻辑删除+个人信息匿名化：资金流水/审计/合同等财务记录依法保留，但不再关联个人身份
+router.delete('/account', authMiddleware, async (req, res) => {
+  const { password } = req.body || {};
+  if (!password) return res.status(400).json({ error: '请输入登录密码确认注销' });
+
+  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
+  if (!user) return res.status(404).json({ error: '账号不存在' });
+  if (user.role === 'admin') return res.status(403).json({ error: '管理员账号不支持自助注销' });
+  if (!bcrypt.compareSync(String(password), user.password_hash)) {
+    return res.status(400).json({ error: '登录密码不正确' });
+  }
+
+  // 进行中的合同/托管资金未结清时禁止注销
+  const activeContract = db.prepare("SELECT id FROM contracts WHERE (owner_id = ? OR engineer_id = ?) AND status = 'active'").get(req.user.id, req.user.id);
+  if (activeContract) return res.status(400).json({ error: '您有履行中的合同（可能含托管资金），请先完成或终止合同后再注销' });
+  const pendingWithdrawal = db.prepare("SELECT id FROM withdrawal_requests WHERE user_id = ? AND status = 'pending'").get(req.user.id);
+  if (pendingWithdrawal) return res.status(400).json({ error: '您有待审核的提现申请，请等待处理完成后再注销' });
+  const balance = db.prepare('SELECT balance FROM users WHERE id = ?').get(req.user.id).balance;
+  if (balance > 0) return res.status(400).json({ error: `账户余额 ${balance} 元未提现，请先提现后再注销` });
+
+  const anonymName = `deleted_user_${req.user.id}_${Date.now()}`;
+  const deleteTx = db.transaction(() => {
+    db.prepare(`
+      UPDATE users SET
+        username = ?, real_name = NULL, phone = NULL, email = NULL,
+        id_card_encrypted = NULL, bank_card_encrypted = NULL,
+        id_checksum_valid = 0, avatar = NULL, certification = NULL,
+        certification_status = 'none', is_disabled = 1,
+        password_hash = ?
+      WHERE id = ?
+    `).run(anonymName, bcrypt.hashSync('deleted-' + Date.now(), 10), req.user.id);
+    // 撤销未处理的企业认证申请
+    db.prepare("UPDATE companies SET status = 'rejected', reject_reason = '账号已注销' WHERE user_id = ? AND status = 'pending'").run(req.user.id);
+    // 拉黑当前访问令牌
+    try {
+      const auth = require('../middleware/auth');
+      if (req.user && req.user.jti) auth.blacklistToken(req.user.jti, 'access', new Date(Date.now() + 3600 * 1000).toISOString());
+    } catch (e) { /* 忽略 */ }
+  });
+  deleteTx();
+
+  logAudit(req.user.id, 'account_deletion', 'user', req.user.id, '账号注销，个人信息已匿名化', req.ip);
+  res.json({ message: '账号已注销。财务与合同记录将依法留存，个人信息已匿名化处理。' });
 });
 
 module.exports = router;

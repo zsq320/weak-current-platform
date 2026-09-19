@@ -1,0 +1,50 @@
+# 自动化回归：PR 与 push 到 master 时运行
+name: API Regression
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      NODE_ENV: production
+      PORT: '3100'
+      DISABLE_RATE_LIMIT: '1'
+      JWT_SECRET: ci-test-secret-for-regression-only-not-production
+      REFRESH_SECRET: ci-test-refresh-secret-for-regression-only
+      ENCRYPTION_KEY: ci-test-encryption-key-32-bytes-long!
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: 安装依赖
+        run: npm ci
+
+      - name: 构建前端
+        run: npm run build
+
+      - name: 启动服务（测试实例）
+        run: |
+          node server/index.js > server-ci.log 2>&1 &
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:3100/api/health && break || sleep 1
+          done
+          curl -sf http://localhost:3100/api/health
+
+      - name: 主流程回归（103 项）
+        run: node tests/api-fulltest.js
+
+      - name: 商用化专项回归（51 项）
+        run: node tests/api-commercial.js
+
+      - name: 输出服务日志（失败时）
+        if: failure()
+        run: tail -50 server-ci.log

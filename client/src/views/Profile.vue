@@ -187,12 +187,38 @@
               </div>
               <p>{{ r.comment }}</p>
               <span class="review-time">{{ r.created_at }}</span>
+              <div v-if="r.rating <= 3" style="margin-top: 4px">
+                <el-button size="small" type="warning" link @click="appealReview(r)">申诉该评价</el-button>
+              </div>
             </div>
           </div>
           <el-empty v-else description="暂无评价" />
         </el-card>
+
+        <!-- 危险区：账号注销 -->
+        <el-card style="margin-top: 16px" class="danger-card">
+          <template #header><h3 style="margin:0; color: #f56c6c">账号注销</h3></template>
+          <el-alert type="warning" :closable="false" style="margin-bottom: 10px"
+            title="注销后个人信息将被匿名化且不可恢复；财务与合同记录依法留存。需先结清余额、提现与进行中的合同。" />
+          <el-button type="danger" plain @click="deleteAccountVisible = true">申请注销账号</el-button>
+        </el-card>
       </el-col>
     </el-row>
+
+    <!-- 注销确认对话框 -->
+    <el-dialog v-model="deleteAccountVisible" title="注销账号确认" width="440px">
+      <el-alert type="error" :closable="false" style="margin-bottom: 12px"
+        title="此操作不可恢复！个人信息将被匿名化处理。" />
+      <el-form label-width="90px">
+        <el-form-item label="登录密码">
+          <el-input v-model="deletePassword" type="password" show-password placeholder="输入登录密码确认注销" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="deleteAccountVisible = false">取消</el-button>
+        <el-button type="danger" :loading="deleting" @click="doDeleteAccount">确认注销</el-button>
+      </template>
+    </el-dialog>
 
     <!-- 修改密码对话框 -->
     <el-dialog v-model="showChangePassword" title="修改密码" width="500px">
@@ -237,11 +263,13 @@
 <script setup>
 import { ref, reactive, onMounted, computed } from 'vue'
 import { useUserStore } from '../store'
+import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { UserFilled, Plus, CircleCheck, Warning, Camera } from '@element-plus/icons-vue'
 import api from '../api'
 
 const userStore = useUserStore()
+const router = useRouter()
 const form = reactive({
   real_name: userStore.user?.real_name || '',
   phone: userStore.user?.phone || '',
@@ -252,6 +280,36 @@ const certInfo = ref('')
 const certImages = ref([])
 const certLoading = ref(false)
 const reviews = ref([])
+
+// 评价申诉
+const appealReview = async (r) => {
+  const { value } = await ElMessageBox.prompt('请填写申诉理由（平台将审核，成立后撤销该评价）', '评价申诉', { inputPlaceholder: '如：该评价与事实不符…' })
+  try {
+    await api.post('/biz/review-appeals', { review_id: r.id, reason: value })
+    ElMessage.success('申诉已提交，等待平台审核')
+  } catch (e) {
+    ElMessage.error(e.response?.data?.error || '申诉提交失败')
+  }
+}
+
+// 账号注销
+const deleteAccountVisible = ref(false)
+const deletePassword = ref('')
+const deleting = ref(false)
+const doDeleteAccount = async () => {
+  if (!deletePassword.value) return ElMessage.warning('请输入登录密码')
+  deleting.value = true
+  try {
+    await api.delete('/auth/account', { data: { password: deletePassword.value } })
+    ElMessage.success('账号已注销')
+    userStore.logout()
+    router.push('/login')
+  } catch (e) {
+    ElMessage.error(e.response?.data?.error || '注销失败')
+  } finally {
+    deleting.value = false
+  }
+}
 const reviewStats = ref({ avg_rating: 0, total: 0 })
 
 // 图片预览

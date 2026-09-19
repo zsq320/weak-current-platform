@@ -44,9 +44,11 @@
           </el-row>
         </el-form-item>
 
-        <el-form-item label="手机验证码" required>
+        <el-form-item v-if="channels.sms" label="手机验证码" required>
           <el-input v-model="form.phone_code" placeholder="请输入6位验证码" maxlength="6" />
         </el-form-item>
+        <el-alert v-else type="info" :closable="false" style="margin-bottom: 12px"
+          title="短信通道未开通：注册将通过QQ邮箱验证码完成，手机号暂不验证（可后续补充）" />
 
         <el-form-item label="邮箱" required>
           <el-row :gutter="10">
@@ -118,6 +120,10 @@ const form = reactive({
 })
 
 const PHONE_REGEX = /^1[3-9]\d{9}$/
+
+// 验证渠道探测：短信网关是否配置
+const channels = ref({ sms: true, email: true })
+api.get('/verification/channels').then(res => { channels.value = res }).catch(() => {})
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 const isPhoneValid = computed(() => PHONE_REGEX.test(form.phone))
@@ -184,7 +190,7 @@ const handleRegister = async () => {
   if (!isPhoneValid.value) {
     return ElMessage.warning('请输入正确的手机号')
   }
-  if (!form.phone_code) {
+  if (channels.sms && !form.phone_code) {
     return ElMessage.warning('请输入手机验证码')
   }
   if (!isEmailValid.value) {

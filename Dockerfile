@@ -3,7 +3,7 @@
 # ============================================
 
 # ---- 阶段1: 构建前端 ----
-FROM node:18-alpine AS frontend-builder
+FROM node:20-alpine AS frontend-builder
 
 WORKDIR /app/client
 
@@ -20,7 +20,7 @@ COPY client/ ./
 RUN npm run build
 
 # ---- 阶段2: 安装后端依赖 ----
-FROM node:18-alpine AS backend-deps
+FROM node:20-alpine AS backend-deps
 
 WORKDIR /app
 
@@ -31,7 +31,7 @@ COPY package.json package-lock.json* ./
 RUN npm ci --production
 
 # ---- 阶段3: 运行镜像 ----
-FROM node:18-alpine
+FROM node:20-alpine
 
 # 设置镜像信息
 LABEL maintainer="ZSQ320"
@@ -51,10 +51,11 @@ COPY --from=frontend-builder /app/client/dist ./client/dist
 
 # 复制后端源码
 COPY server/ ./server/
+COPY scripts/ ./scripts/
 COPY package.json ./
 
-# 创建数据目录（用于挂载卷）
-RUN mkdir -p /data && chown -R appuser:appgroup /data
+# 创建数据/上传/备份目录（用于挂载卷；uploads 与 backups 必须持久化，容器重建不丢文件）
+RUN mkdir -p /data /app/server/uploads /app/backups && chown -R appuser:appgroup /data /app/server/uploads /app/backups
 
 # 设置环境变量
 ENV NODE_ENV=production \
@@ -67,7 +68,7 @@ EXPOSE 3000
 
 # 健康检查
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/auth/me || exit 1
+  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1
 
 # 切换到非 root 用户
 USER appuser

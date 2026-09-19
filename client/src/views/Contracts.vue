@@ -83,15 +83,23 @@
         <template v-if="detail.warranties.length > 0">
           <h4 style="margin: 14px 0 6px">质保工单</h4>
           <el-table :data="detail.warranties" size="small">
-            <el-table-column prop="title" label="标题" min-width="140" />
-            <el-table-column prop="status" label="状态" width="90">
+            <el-table-column prop="title" label="标题" min-width="120" />
+            <el-table-column prop="description" label="描述" min-width="120" show-overflow-tooltip />
+            <el-table-column prop="status" label="状态" width="80">
               <template #default="{ row }">
                 <el-tag size="small" :type="{ open: 'warning', processing: 'warning', resolved: 'success', closed: 'info' }[row.status]">
                   {{ { open: '待处理', processing: '处理中', resolved: '已解决', closed: '已关闭' }[row.status] }}
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column prop="created_at" label="报修时间" width="170" />
+            <el-table-column prop="handle_note" label="处理说明" min-width="110" show-overflow-tooltip />
+            <el-table-column label="操作" width="170" fixed="right">
+              <template #default="{ row }">
+                <el-button v-if="isEngineerRole && row.status === 'open'" type="primary" size="small" @click="warrantyAction(row, 'accept')">接单</el-button>
+                <el-button v-if="isEngineerRole && row.status === 'processing'" type="success" size="small" @click="warrantyAction(row, 'resolve')">完成维修</el-button>
+                <el-button v-if="isOwnerRole && row.status === 'resolved'" type="info" size="small" @click="warrantyAction(row, 'close')">确认关闭</el-button>
+              </template>
+            </el-table-column>
           </el-table>
         </template>
 
@@ -103,6 +111,8 @@
       <template #footer>
         <el-space wrap>
           <el-button @click="detailVisible = false">关闭</el-button>
+          <el-button @click="printContract">打印/存为PDF</el-button>
+          <el-button v-if="canWarranty" type="warning" plain @click="warrantyVisible = true">发起报修</el-button>
           <el-button v-if="canDispute" type="danger" plain @click="disputeVisible = true">发起纠纷</el-button>
           <el-button v-if="canEditContent" type="warning" @click="editContent">修改条款</el-button>
           <el-button v-if="canSign" type="primary" @click="openSign">签署合同</el-button>
@@ -134,6 +144,24 @@
       <template #footer>
         <el-button @click="contentEditVisible = false">取消</el-button>
         <el-button type="primary" @click="saveContent">保存新版本</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 发起报修 -->
+    <el-dialog v-model="warrantyVisible" title="质保报修" width="480px">
+      <el-alert type="info" :closable="false" style="margin-bottom: 10px"
+        title="质保期内的质量问题可发起报修：工程师接单维修后由您确认关闭。" />
+      <el-form label-width="80px">
+        <el-form-item label="标题">
+          <el-input v-model="warrantyForm.title" placeholder="如：二楼监控画面闪烁" />
+        </el-form-item>
+        <el-form-item label="描述">
+          <el-input v-model="warrantyForm.description" type="textarea" :rows="3" placeholder="故障现象、发生时间等" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="warrantyVisible = false">取消</el-button>
+        <el-button type="primary" @click="doWarranty">提交报修</el-button>
       </template>
     </el-dialog>
 
@@ -176,6 +204,10 @@ const contentDraft = ref('')
 const disputeVisible = ref(false)
 const disputeForm = ref({ reason: '', description: '' })
 
+// 质保报修
+const warrantyVisible = ref(false)
+const warrantyForm = ref({ title: '', description: '' })
+
 const isOwnerRole = computed(() => detail.value?.contract?.owner_id === userStore.user?.id)
 const mySigned = computed(() => isOwnerRole.value
   ? !!detail.value?.contract?.owner_signed_at
@@ -190,6 +222,63 @@ const canEditContent = computed(() => {
   return c && c.status === 'active' && c.owner_id === userStore.user?.id
     && !c.owner_signed_at && !c.engineer_signed_at
 })
+const isEngineerRole = computed(() => detail.value?.contract?.engineer_id === userStore.user?.id)
+// 质保报修入口：已结算合同 + 报修方（甲方）+ 质保期未结束
+const canWarranty = computed(() => {
+  const c = detail.value?.contract
+  return c && c.status === 'completed' && isOwnerRole.value && !c.retention_released_at
+})
+
+const warrantyAction = async (row, action) => {
+  let handle_note = null
+  if (action === 'resolve') {
+    const { value } = await ElMessageBox.prompt('请填写维修处理说明', '完成维修')
+    handle_note = value
+  }
+  try {
+    await api.post(`/biz/warranties/${row.id}/${action}`, handle_note ? { handle_note } : {})
+    ElMessage.success('操作成功')
+    await openDetail({ id: detail.value.contract.id })
+  } catch (e) {
+    ElMessage.error(e.response?.data?.error || '操作失败')
+  }
+}
+
+const doWarranty = async () => {
+  if (!warrantyForm.value.title.trim()) return ElMessage.warning('请填写报修标题')
+  try {
+    await api.post('/biz/warranties', {
+      project_id: detail.value.contract.project_id,
+      ...warrantyForm.value
+    })
+    ElMessage.success('报修工单已提交')
+    warrantyVisible.value = false
+    warrantyForm.value = { title: '', description: '' }
+    await openDetail({ id: detail.value.contract.id })
+  } catch (e) {
+    ElMessage.error(e.response?.data?.error || '提交失败')
+  }
+}
+
+// 打印合同（浏览器另存为 PDF，作为签署凭证留存）
+const printContract = () => {
+  const c = detail.value?.contract
+  if (!c) return
+  const win = window.open('', '_blank')
+  win.document.write(`<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><title>合同 #${c.id}</title>
+    <style>body{font-family:'Microsoft YaHei',sans-serif;line-height:1.9;padding:40px;max-width:800px;margin:0 auto;color:#1f2937}
+    pre{white-space:pre-wrap;font-family:inherit}h3{text-align:center}
+    .meta{color:#6b7280;font-size:12px;border-top:1px solid #ddd;padding-top:8px;margin-top:24px}</style></head><body>
+    <h3>弱电工程服务合同（平台存档）</h3>
+    <pre>${c.content || ''}</pre>
+    <div class="meta">合同编号：#${c.id} ｜ 内容版本：V${c.content_version || 1} ｜ 内容哈希：${c.content_hash || '-'}<br/>
+    甲方签署时间：${c.owner_signed_at || '未签署'} ｜ 乙方签署时间：${c.engineer_signed_at || '未签署'}</div>
+    </body></html>`)
+  win.document.close()
+  win.focus()
+  setTimeout(() => win.print(), 400)
+}
+
 const canDispute = computed(() => {
   const c = detail.value?.contract
   return c && !detail.value?.dispute

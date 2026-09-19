@@ -15,6 +15,15 @@ const { sendEmail } = require('../utils/email');
 
 const router = express.Router();
 
+// 验证渠道探测：SMS 是否配置了真实网关、邮件是否可用
+router.get('/channels', (req, res) => {
+  res.json({
+    sms: !!process.env.SMS_API_URL,
+    email: !!(process.env.SMTP_USER && process.env.SMTP_PASS),
+    smtp_host: process.env.SMTP_HOST || 'smtp.qq.com'
+  });
+});
+
 // 验证码有效期（分钟）
 const CODE_EXPIRE_MINUTES = 5;
 // 发送间隔（秒）
@@ -144,11 +153,17 @@ router.post('/email', async (req, res) => {
       VALUES (?, 'email', ?, ?, ?)
     `).run(email, code, purpose, expiresAt);
 
-    // 发送邮件
+    // 发送邮件（失败必须显式报错，绝不假成功）
     const result = await sendEmail(email, code, purpose);
+    if (!result || !result.success) {
+      return res.status(502).json({
+        error: '邮件发送失败：' + (result && result.error ? result.error : 'SMTP服务不可用')
+          + '。请稍后重试或联系管理员检查邮箱配置。'
+      });
+    }
 
     res.json({
-      message: '验证码已发送',
+      message: '验证码已发送至您的邮箱，请查收（注意垃圾邮件箱）',
       // 开发环境返回验证码
       ...(process.env.NODE_ENV !== 'production' && { code })
     });

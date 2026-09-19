@@ -134,6 +134,20 @@ router.post('/checkins', (req, res) => {
   if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) {
     return res.status(400).json({ error: '定位信息无效' });
   }
+
+  // 电子围栏：项目配置了现场坐标时，打卡点必须在半径范围内
+  if (ctx.project.site_lat != null && ctx.project.site_lng != null) {
+    const R = 6371000;
+    const dLat = (lat - ctx.project.site_lat) * Math.PI / 180;
+    const dLng = (lng - ctx.project.site_lng) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) ** 2
+      + Math.cos(ctx.project.site_lat * Math.PI / 180) * Math.cos(lat * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+    const distance = Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+    const limit = ctx.project.site_radius || 300;
+    if (distance > limit) {
+      return res.status(400).json({ error: `打卡位置距离项目现场约 ${distance} 米，超出电子围栏（${limit} 米），请在现场打卡` });
+    }
+  }
   const result = db.prepare(`
     INSERT INTO site_checkins (project_id, user_id, latitude, longitude, address, photo, remark)
     VALUES (?, ?, ?, ?, ?, ?, ?)

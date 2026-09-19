@@ -80,6 +80,53 @@ router.post('/warranties', (req, res) => {
   res.status(201).json({ message: '报修工单已提交', id: result.lastInsertRowid });
 });
 
+// 质保工单状态流转：open --工程师接单--> processing --工程师完成--> resolved --甲方确认--> closed
+function getWarrantyWithAccess(req, id) {
+  const w = db.prepare('SELECT * FROM warranty_tickets WHERE id = ?').get(Number(id));
+  if (!w) return { error: '工单不存在', code: 404 };
+  const contract = w.contract_id ? db.prepare('SELECT * FROM contracts WHERE id = ?').get(w.contract_id) : null;
+  const isOwner = contract && contract.owner_id === req.user.id;
+  const isEngineer = contract && contract.engineer_id === req.user.id;
+  if (!isOwner && !isEngineer && req.user.role !== 'admin') return { error: '无权操作', code: 403 };
+  return { w, isOwner, isEngineer };
+}
+
+// 工程师接单（报修响应）
+router.post('/warranties/:id/accept', (req, res) => {
+  const { w, isEngineer, error, code } = getWarrantyWithAccess(req, req.params.id);
+  if (error) return res.status(code).json({ error });
+  if (!isEngineer) return res.status(403).json({ error: '仅质保责任工程师可接单' });
+  if (w.status !== 'open') return res.status(400).json({ error: '工单状态不允许接单' });
+  db.prepare("UPDATE warranty_tickets SET status = 'processing' WHERE id = ?").run(w.id);
+  logAudit(req.user.id, 'warranty_accept', 'warranty_ticket', w.id, null, req.ip);
+  res.json({ message: '已接单，请尽快安排维修' });
+});
+
+// 工程师完成维修
+router.post('/warranties/:id/resolve', (req, res) => {
+  const { w, isEngineer, error, code } = getWarrantyWithAccess(req, req.params.id);
+  if (error) return res.status(code).json({ error });
+  if (!isEngineer) return res.status(403).json({ error: '仅质保责任工程师可完成处理' });
+  if (w.status !== 'processing') return res.status(400).json({ error: '请先接单再完成处理' });
+  const { handle_note } = req.body;
+  if (!handle_note || !String(handle_note).trim()) return res.status(400).json({ error: '请填写维修处理说明' });
+  db.prepare("UPDATE warranty_tickets SET status = 'resolved', handle_note = ?, resolved_at = CURRENT_TIMESTAMP WHERE id = ?")
+    .run(String(handle_note).trim(), w.id);
+  logAudit(req.user.id, 'warranty_resolve', 'warranty_ticket', w.id, null, req.ip);
+  res.json({ message: '维修已完成，等待甲方确认关闭' });
+});
+
+// 甲方确认关闭
+router.post('/warranties/:id/close', (req, res) => {
+  const { w, isOwner, error, code } = getWarrantyWithAccess(req, req.params.id);
+  if (error) return res.status(code).json({ error });
+  if (!isOwner) return res.status(403).json({ error: '仅报修方（甲方）可确认关闭' });
+  if (w.status !== 'resolved') return res.status(400).json({ error: '工单未完成维修，无法关闭' });
+  db.prepare("UPDATE warranty_tickets SET status = 'closed' WHERE id = ?").run(w.id);
+  logAudit(req.user.id, 'warranty_close', 'warranty_ticket', w.id, null, req.ip);
+  res.json({ message: '工单已关闭' });
+});
+
 // ============ 发票申请 ============
 router.get('/invoices', (req, res) => {
   const items = req.user.role === 'admin'

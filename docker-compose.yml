@@ -16,6 +16,10 @@ services:
     volumes:
       # 数据持久化
       - ./data:/data
+      # 上传文件持久化（头像/资质/工程照片/合同附件——容器重建不丢失）
+      - ./uploads:/app/server/uploads
+      # 数据库备份持久化
+      - ./backups:/app/backups
       # 配置文件（可选，用于热更新配置）
       - ./config:/app/config:ro
     environment:

@@ -161,7 +161,7 @@ router.put('/:id', authMiddleware, (req, res) => {
   const isAdmin = req.user.role === 'admin';
   if (!isOwner && !isAdmin) return res.status(403).json({ error: '无权修改此工程' });
 
-  const { title, description, category, location, budget, deadline, status } = req.body;
+  const { title, description, category, location, budget, deadline, status, site_lat, site_lng, site_radius } = req.body;
 
   // 如果有状态更新，验证状态转换
   if (status && status !== project.status) {
@@ -221,6 +221,19 @@ router.put('/:id', authMiddleware, (req, res) => {
   } else if (description !== undefined && description !== null && String(description).trim() !== '') {
     // 进行中/已完成的工程仍允许发布者补充和修正工程描述
     db.prepare('UPDATE projects SET description = ? WHERE id = ?').run(description, projectId);
+  }
+
+  // 现场电子围栏坐标（任何状态都可设置，由发布者维护）
+  if (site_lat !== undefined || site_lng !== undefined || site_radius !== undefined) {
+    const lat = site_lat === null || site_lat === '' ? null : Number(site_lat);
+    const lng = site_lng === null || site_lng === '' ? null : Number(site_lng);
+    const radius = site_radius === null || site_radius === '' ? null : Math.max(20, Math.min(5000, Math.floor(Number(site_radius) || 300)));
+    if ((lat !== null && (!Number.isFinite(lat) || Math.abs(lat) > 90))
+      || (lng !== null && (!Number.isFinite(lng) || Math.abs(lng) > 180))) {
+      return res.status(400).json({ error: '现场坐标无效' });
+    }
+    db.prepare('UPDATE projects SET site_lat = ?, site_lng = ?, site_radius = ? WHERE id = ?')
+      .run(lat, lng, radius, projectId);
   }
 
   res.json({ message: '工程更新成功' });

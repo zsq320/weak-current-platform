@@ -311,6 +311,27 @@ async function main() {
   const contract = myContracts.json.find(c => c.project_id === projectId && c.status === 'active');
   assert('合同列表包含新合同', !!contract);
 
+  // 上市硬化后：完工前必须双方签署合同 + 竣工验收通过
+  const notSigned = await api('POST', `/api/contracts/${contract.id}/complete`, { token: owner });
+  assert('未签署合同时完工被拒', notSigned.status === 400, JSON.stringify(notSigned.json).slice(0, 100));
+
+  const engSign = await api('POST', `/api/contracts/${contract.id}/sign`, { token: eng, body: { password: '123456' } });
+  assert('乙方签署合同', engSign.status === 200, JSON.stringify(engSign.json).slice(0, 100));
+  const ownerSign = await api('POST', `/api/contracts/${contract.id}/sign`, { token: owner, body: { password: '123456' } });
+  assert('甲方签署合同', ownerSign.status === 200);
+
+  const noAcceptance = await api('POST', `/api/contracts/${contract.id}/complete`, { token: owner });
+  assert('未竣工验收时完工被拒', noAcceptance.status === 400, JSON.stringify(noAcceptance.json).slice(0, 100));
+
+  const finalAcc = await api('POST', `/api/projects/${projectId}/construction/acceptances`, {
+    token: eng, body: { type: 'final', name: '竣工验收', content: '全部完工，申请验收' }
+  });
+  assert('提交竣工验收申请', finalAcc.status === 201);
+  const accList = await api('GET', `/api/projects/${projectId}/construction/acceptances`, { token: owner });
+  const finalAccItem = accList.json.items.find(a => a.type === 'final' && a.status === 'pending');
+  const accPass = await api('PUT', `/api/projects/${projectId}/construction/acceptances/${finalAccItem.id}/review`, { token: owner, body: { status: 'approved' } });
+  assert('竣工验收通过', accPass.status === 200);
+
   const engComplete = await api('POST', `/api/contracts/${contract.id}/complete`, { token: eng });
   assert('工程师不可确认完工（仅甲方）', engComplete.status === 403);
 
