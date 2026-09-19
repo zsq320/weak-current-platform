@@ -36,6 +36,10 @@ const {
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// 公网经 ngrok/Nginx 反代进入时带 X-Forwarded-For 头；
+// 不开启 trust proxy 会导致 express-rate-limit 校验异常（限流路由 500）
+app.set('trust proxy', 1);
+
 // 获取本机局域网 IP
 function getLocalIP() {
   const interfaces = os.networkInterfaces();
