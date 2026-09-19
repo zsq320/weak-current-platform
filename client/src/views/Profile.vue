@@ -6,7 +6,7 @@
           <template #header><h3>个人信息</h3></template>
           <div class="user-card">
             <div class="avatar-wrapper">
-              <el-avatar :size="100" :src="userStore.user?.avatar ? api.defaults.baseURL + userStore.user.avatar : ''" :icon="UserFilled" />
+              <el-avatar :size="100" :src="userStore.user?.avatar || ''" :icon="UserFilled" />
               <el-upload
                 class="avatar-uploader"
                 action="#"
@@ -101,6 +101,44 @@
           <div class="quick-amounts">
             <el-button v-for="a in [100, 500, 1000, 5000, 10000]" :key="a" @click="depositAmount = a">¥{{ a }}</el-button>
           </div>
+        </el-card>
+
+        <!-- 企业认证（施工单位） -->
+        <el-card style="margin-top: 16px">
+          <template #header>
+            <div style="display:flex; justify-content: space-between; align-items: center">
+              <h3 style="margin:0">企业认证</h3>
+              <el-tag v-if="company && company.status === 'approved'" type="success" size="small">已认证：{{ company.company_name }}</el-tag>
+              <el-tag v-else-if="company && company.status === 'pending'" type="warning" size="small">审核中</el-tag>
+              <el-tag v-else-if="company && company.status === 'rejected'" type="danger" size="small">已驳回：{{ company.reject_reason }}</el-tag>
+            </div>
+          </template>
+          <el-form label-width="110px">
+            <el-form-item label="企业名称">
+              <el-input v-model="companyForm.company_name" />
+            </el-form-item>
+            <el-form-item label="信用代码">
+              <el-input v-model="companyForm.license_no" placeholder="18位统一社会信用代码" />
+            </el-form-item>
+            <el-form-item label="资质等级">
+              <el-select v-model="companyForm.qualification_level" placeholder="电子与智能化专业承包资质等" clearable style="width: 100%">
+                <el-option label="电子与智能化工程专业承包一级" value="电子与智能化工程专业承包一级" />
+                <el-option label="电子与智能化工程专业承包二级" value="电子与智能化工程专业承包二级" />
+                <el-option label="建筑智能化系统设计专项" value="建筑智能化系统设计专项" />
+                <el-option label="安防工程企业资质一级" value="安防工程企业资质一级" />
+                <el-option label="安防工程企业资质二级" value="安防工程企业资质二级" />
+                <el-option label="其他" value="其他" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="资质证书编号">
+              <el-input v-model="companyForm.qualification_no" />
+            </el-form-item>
+            <el-form-item>
+              <el-button type="primary" :loading="companySaving" @click="saveCompany">
+                {{ company && company.status === 'approved' ? '重新认证' : '提交认证' }}
+              </el-button>
+            </el-form-item>
+          </el-form>
         </el-card>
 
         <el-card style="margin-top: 16px" v-if="userStore.user?.role === 'user' && userStore.user?.certification_status !== 'pending' && userStore.user?.certification_status !== 'approved'">
@@ -202,8 +240,6 @@ import { useUserStore } from '../store'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { UserFilled, Plus, CircleCheck, Warning, Camera } from '@element-plus/icons-vue'
 import api from '../api'
-
-const backendBaseURL = api.defaults.baseURL || ''
 
 const userStore = useUserStore()
 const form = reactive({
@@ -392,8 +428,24 @@ const submitVerification = async () => {
 }
 
 const updateProfile = async () => {
+  // 服务端 /auth/me 返回的 phone/email 为脱敏值（含 *），
+  // 仅提交用户实际修改过的字段，避免把脱敏值当真实数据提交导致校验失败
+  const payload = {}
+  const original = userStore.user || {}
+  if (form.real_name && form.real_name !== (original.real_name || '')) {
+    payload.real_name = form.real_name
+  }
+  if (form.phone && form.phone !== (original.phone || '') && !form.phone.includes('*')) {
+    payload.phone = form.phone
+  }
+  if (form.email && form.email !== (original.email || '') && !form.email.includes('*')) {
+    payload.email = form.email
+  }
+  if (Object.keys(payload).length === 0) {
+    return ElMessage.info('没有需要保存的修改')
+  }
   try {
-    await api.put('/auth/profile', form)
+    await api.put('/auth/profile', payload)
     await userStore.fetchUser()
     ElMessage.success('保存成功')
   } catch (e) {}

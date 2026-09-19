@@ -40,7 +40,7 @@
         </el-badge>
         <el-dropdown @command="handleCommand">
           <span class="user-info">
-            <el-avatar :size="32" :src="userStore.user?.avatar ? backendBaseURL + userStore.user.avatar : ''" :icon="UserFilled" />
+            <el-avatar :size="32" :src="userStore.user?.avatar || ''" :icon="UserFilled" />
             <span class="username">{{ userStore.user?.real_name || userStore.user?.username }}</span>
             <el-tag v-if="userStore.isClient" size="small" type="primary">甲方</el-tag>
             <el-tag v-else-if="userStore.isEngineer" size="small" type="success">工程师</el-tag>
@@ -48,6 +48,7 @@
           </span>
           <template #dropdown>
             <el-dropdown-menu>
+              <el-dropdown-item command="wallet">我的钱包</el-dropdown-item>
               <el-dropdown-item command="profile">个人中心</el-dropdown-item>
               <el-dropdown-item v-if="!userStore.isAdmin" command="dashboard">数据统计</el-dropdown-item>
               <el-dropdown-item v-if="userStore.isAdmin" command="admin">管理后台</el-dropdown-item>
@@ -75,7 +76,6 @@ const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
 const unreadCount = ref(0)
-const backendBaseURL = api.defaults.baseURL || ''
 
 const fetchUnread = async () => {
   if (!userStore.isLoggedIn) return
@@ -105,4 +105,16 @@ const handleCommand = (cmd) => {
 .user-info { display: flex; align-items: center; gap: 8px; cursor: pointer; }
 .username { font-size: 14px; }
 .msg-badge { margin-right: 8px; }
+
+/* 移动端适配：导航可横向滑动，隐藏次要信息 */
+@media (max-width: 768px) {
+  .navbar { padding: 0 10px; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .navbar::-webkit-scrollbar { display: none; }
+  .nav-brand { font-size: 15px; margin-right: 8px; gap: 5px; flex-shrink: 0; }
+  .navbar :deep(.el-menu-item) { padding: 0 10px; flex-shrink: 0; }
+  .nav-right { gap: 6px; margin-left: auto; flex-shrink: 0; }
+  .username { display: none; }
+  .user-info .el-tag { display: none; }
+  .msg-badge { margin-right: 2px; }
+}
 </style>

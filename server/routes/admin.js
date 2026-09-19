@@ -11,6 +11,7 @@ const express = require('express');
 const db = require('../db');
 const { authMiddleware } = require('../middleware/auth');
 const { logAudit } = require('../middleware/audit');
+const { postLedger, recordPlatformIncome, getSetting, setSetting, getNumberSetting } = require('../utils/ledger');
 
 const router = express.Router();
 
@@ -103,12 +104,36 @@ router.put('/users/:id/role', (req, res) => {
 // 获取待审批的认证申请
 router.get('/certifications', (req, res) => {
   const rows = db.prepare("SELECT id, username, real_name, phone, email, certification, certification_status, created_at FROM users WHERE certification_status = 'pending'").all();
-  res.json(rows);
+  // certification 字段为 JSON（{description, images}），解析后便于前端展示
+  res.json(rows.map(row => {
+    let description = row.certification;
+    let imageCount = 0;
+    try {
+      const parsed = JSON.parse(row.certification);
+      if (parsed && typeof parsed === 'object') {
+        description = parsed.description || '';
+        imageCount = Array.isArray(parsed.images) ? parsed.images.length : 0;
+      }
+    } catch (e) {
+      // 兼容旧数据（纯文本）
+    }
+    return { ...row, certification_description: description, certification_image_count: imageCount };
+  }));
 });
 
 // 审批认证
 router.post('/certifications/:userId/approve', (req, res) => {
   const { action } = req.body;
+  if (!['approve', 'reject'].includes(action)) {
+    return res.status(400).json({ error: '无效的审批操作' });
+  }
+
+  const target = db.prepare('SELECT id, certification_status FROM users WHERE id = ?').get(Number(req.params.userId));
+  if (!target) return res.status(404).json({ error: '用户不存在' });
+  if (target.certification_status !== 'pending') {
+    return res.status(400).json({ error: '该用户没有待审批的认证申请' });
+  }
+
   const status = action === 'approve' ? 'approved' : 'rejected';
   const newRole = action === 'approve' ? 'engineer' : 'user';
   db.prepare('UPDATE users SET certification_status = ?, role = ? WHERE id = ?')
@@ -300,6 +325,221 @@ router.get('/stats', (req, res) => {
     total_engineers, total_clients,
     users_by_role, projects_by_status, contracts_by_status, monthly_revenue, recent_activity
   });
+});
+
+
+// ========== 商用化扩展：资金审核 / 纠纷仲裁 / 内容审核 / 报表 / 设置 / 备份 ==========
+
+// 提现审核列表
+router.get('/withdrawals', (req, res) => {
+  const status = ['pending', 'approved', 'rejected', 'paid'].includes(req.query.status) ? req.query.status : null;
+  const items = status
+    ? db.prepare("SELECT w.*, u.username, u.real_name FROM withdrawal_requests w JOIN users u ON w.user_id = u.id WHERE w.status = ? ORDER BY w.id DESC LIMIT 100").all(status)
+    : db.prepare("SELECT w.*, u.username, u.real_name FROM withdrawal_requests w JOIN users u ON w.user_id = u.id ORDER BY CASE w.status WHEN 'pending' THEN 0 ELSE 1 END, w.id DESC LIMIT 100").all();
+  res.json({ items });
+});
+
+// 提现审核：approve=确认打款（余额已在申请时冻结）、reject=退回余额
+router.post('/withdrawals/:id/process', (req, res) => {
+  const wr = db.prepare('SELECT * FROM withdrawal_requests WHERE id = ?').get(Number(req.params.id));
+  if (!wr) return res.status(404).json({ error: '提现申请不存在' });
+  if (wr.status !== 'pending') return res.status(400).json({ error: '该申请已处理' });
+
+  const { action, reject_reason } = req.body;
+  if (!['approve', 'reject'].includes(action)) return res.status(400).json({ error: '无效操作' });
+  if (action === 'reject' && !String(reject_reason || '').trim()) return res.status(400).json({ error: '请填写驳回原因' });
+
+  const processTx = db.transaction(() => {
+    if (action === 'approve') {
+      db.prepare("UPDATE withdrawal_requests SET status = 'paid', processed_by = ?, processed_at = CURRENT_TIMESTAMP WHERE id = ?")
+        .run(req.user.id, wr.id);
+      recordPlatformIncome({ type: 'withdraw', amount: wr.amount, refType: 'withdrawal', refId: wr.id, remark: '提现打款给用户#' + wr.user_id });
+    } else {
+      postLedger({ userId: wr.user_id, amount: wr.amount, type: 'withdraw_refund', refType: 'withdrawal', refId: wr.id, remark: '提现被驳回，余额退回：' + String(reject_reason).trim(), operatorId: req.user.id });
+      db.prepare("UPDATE withdrawal_requests SET status = 'rejected', reject_reason = ?, processed_by = ?, processed_at = CURRENT_TIMESTAMP WHERE id = ?")
+        .run(String(reject_reason).trim(), req.user.id, wr.id);
+    }
+  });
+
+  try {
+    processTx();
+  } catch (err) {
+    return res.status(500).json({ error: err.message || '处理失败' });
+  }
+  logAudit(req.user.id, 'process_withdrawal', 'withdrawal', wr.id, { action }, req.ip);
+  res.json({ message: action === 'approve' ? '已确认打款' : '已驳回并退回余额' });
+});
+
+// 纠纷仲裁：支持按结果处置资金（退款给甲方/放款给乙方）
+router.post('/disputes/:id/arbitrate', (req, res) => {
+  const d = db.prepare('SELECT * FROM disputes WHERE id = ?').get(Number(req.params.id));
+  if (!d) return res.status(404).json({ error: '纠纷单不存在' });
+  if (['resolved', 'closed'].includes(d.status)) return res.status(400).json({ error: '该纠纷已办结' });
+
+  const { resolution, refund_amount, target } = req.body; // target: owner(退款给甲方)/engineer(放款给乙方)
+  if (!String(resolution || '').trim()) return res.status(400).json({ error: '请填写仲裁处理意见' });
+  const refund = Math.round(Number(refund_amount) * 100) / 100;
+
+  const arbitrateTx = db.transaction(() => {
+    let contract = null;
+    if (d.contract_id) contract = db.prepare('SELECT * FROM contracts WHERE id = ?').get(d.contract_id);
+
+    if (contract && contract.status === 'active' && refund > 0 && ['owner', 'engineer'].includes(target)) {
+      if (target === 'engineer') {
+        postLedger({ userId: contract.engineer_id, amount: refund, type: 'settlement', refType: 'dispute', refId: d.id, remark: '纠纷仲裁放款（纠纷#' + d.id + '）' });
+      } else {
+        postLedger({ userId: contract.owner_id, amount: refund, type: 'refund', refType: 'dispute', refId: d.id, remark: '纠纷仲裁退款（纠纷#' + d.id + '）' });
+      }
+      if (contract.escrow_status === 'frozen' && target === 'owner') {
+        db.prepare("UPDATE contracts SET escrow_status = 'refunded' WHERE id = ?").run(contract.id);
+      }
+    }
+
+    db.prepare("UPDATE disputes SET status = 'resolved', resolution = ?, refund_amount = ?, handled_by = ?, handled_at = CURRENT_TIMESTAMP WHERE id = ?")
+      .run(String(resolution).trim(), refund > 0 ? refund : 0, req.user.id, d.id);
+  });
+
+  try {
+    arbitrateTx();
+  } catch (err) {
+    return res.status(500).json({ error: err.message || '仲裁失败' });
+  }
+  logAudit(req.user.id, 'arbitrate_dispute', 'dispute', d.id, { refund, target }, req.ip);
+  res.json({ message: '仲裁已完成' });
+});
+
+// 发票处理
+router.post('/invoices/:id/process', (req, res) => {
+  const inv = db.prepare('SELECT * FROM invoices WHERE id = ?').get(Number(req.params.id));
+  if (!inv) return res.status(404).json({ error: '发票申请不存在' });
+  const { action, remark } = req.body; // approve/reject/issue
+  if (!['approve', 'reject', 'issue'].includes(action)) return res.status(400).json({ error: '无效操作' });
+  const statusMap = { approve: 'approved', reject: 'rejected', issue: 'issued' };
+  db.prepare('UPDATE invoices SET status = ?, remark = COALESCE(?, remark), processed_by = ?, processed_at = CURRENT_TIMESTAMP WHERE id = ?')
+    .run(statusMap[action], remark || null, req.user.id, inv.id);
+  logAudit(req.user.id, 'process_invoice', 'invoice', inv.id, { action }, req.ip);
+  res.json({ message: '发票申请已处理' });
+});
+
+// 企业认证审核
+router.get('/companies', (req, res) => {
+  const items = db.prepare(`
+    SELECT c.*, u.username, u.real_name FROM companies c JOIN users u ON c.user_id = u.id
+    ORDER BY CASE c.status WHEN 'pending' THEN 0 ELSE 1 END, c.applied_at DESC LIMIT 100
+  `).all();
+  res.json({ items });
+});
+
+router.post('/companies/:userId/review', (req, res) => {
+  const c = db.prepare('SELECT * FROM companies WHERE user_id = ?').get(Number(req.params.userId));
+  if (!c) return res.status(404).json({ error: '企业认证不存在' });
+  if (c.status !== 'pending') return res.status(400).json({ error: '该认证已处理' });
+  const { action, reject_reason } = req.body; // approve/reject
+  if (!['approve', 'reject'].includes(action)) return res.status(400).json({ error: '无效操作' });
+  if (action === 'reject' && !String(reject_reason || '').trim()) return res.status(400).json({ error: '请填写驳回原因' });
+  db.prepare('UPDATE companies SET status = ?, reject_reason = ?, reviewed_by = ?, reviewed_at = CURRENT_TIMESTAMP WHERE user_id = ?')
+    .run(action === 'approve' ? 'approved' : 'rejected', action === 'reject' ? String(reject_reason).trim() : null, req.user.id, c.user_id);
+  logAudit(req.user.id, 'review_company', 'company', c.user_id, { action }, req.ip);
+  res.json({ message: action === 'approve' ? '企业认证已通过' : '企业认证已驳回' });
+});
+
+// 评价申诉处理（可同时撤销违规评价）
+router.get('/review-appeals', (req, res) => {
+  const items = db.prepare(`
+    SELECT ra.*, r.rating, r.comment as review_comment, u.username as appellant_name,
+           r.to_user_id as review_target
+    FROM review_appeals ra
+    LEFT JOIN reviews r ON ra.review_id = r.id
+    JOIN users u ON ra.user_id = u.id
+    ORDER BY CASE ra.status WHEN 'pending' THEN 0 ELSE 1 END, ra.id DESC LIMIT 100
+  `).all();
+  res.json({ items });
+});
+
+router.post('/review-appeals/:id/process', (req, res) => {
+  const ra = db.prepare('SELECT * FROM review_appeals WHERE id = ?').get(Number(req.params.id));
+  if (!ra) return res.status(404).json({ error: '申诉不存在' });
+  if (ra.status !== 'pending') return res.status(400).json({ error: '该申诉已处理' });
+  const { action } = req.body; // uphold(维持)/revoke(撤销并删除评价)
+  if (!['uphold', 'revoke'].includes(action)) return res.status(400).json({ error: '无效操作' });
+
+  db.transaction(() => {
+    db.prepare('UPDATE review_appeals SET status = ?, handled_by = ?, handled_at = CURRENT_TIMESTAMP WHERE id = ?')
+      .run(action === 'revoke' ? 'approved' : 'rejected', req.user.id, ra.id);
+    if (action === 'revoke') {
+      db.prepare('DELETE FROM reviews WHERE id = ?').run(ra.review_id);
+    }
+  })();
+  logAudit(req.user.id, 'process_review_appeal', 'review_appeal', ra.id, { action }, req.ip);
+  res.json({ message: action === 'revoke' ? '申诉成立，评价已撤销' : '申诉已维持原评价' });
+});
+
+// 平台设置
+router.get('/settings', (req, res) => {
+  const rows = db.prepare('SELECT * FROM settings ORDER BY key').all();
+  res.json({ items: rows });
+});
+
+router.put('/settings', (req, res) => {
+  const entries = (req.body && req.body.settings) || {};
+  const allowed = ['commission_rate', 'retention_rate', 'warranty_months', 'require_final_acceptance', 'require_both_signatures'];
+  for (const [k, v] of Object.entries(entries)) {
+    if (!allowed.includes(k)) return res.status(400).json({ error: '不支持的设置项: ' + k });
+    if (['commission_rate', 'retention_rate'].includes(k)) {
+      const n = Number(v);
+      if (!Number.isFinite(n) || n < 0 || n > 50) return res.status(400).json({ error: k + ' 必须在 0-50 之间' });
+    }
+    setSetting(k, v);
+  }
+  logAudit(req.user.id, 'update_settings', 'settings', null, entries, req.ip);
+  res.json({ message: '设置已保存' });
+});
+
+// 对账报表（CSV 导出）
+router.get('/reports/ledger.csv', (req, res) => {
+  const start = String(req.query.start || '2000-01-01');
+  const end = String(req.query.end || '2999-12-31');
+  const rows = db.prepare(`
+    SELECT l.id, l.type, l.amount, l.balance_after, u.username, l.ref_type, l.ref_id, l.remark, l.created_at
+    FROM ledger l LEFT JOIN users u ON l.user_id = u.id
+    WHERE date(l.created_at) BETWEEN date(?) AND date(?)
+    ORDER BY l.id ASC
+  `).all(start, end);
+
+  const csvLines = [['id', 'type', 'amount', 'balance_after', 'username', 'ref_type', 'ref_id', 'remark', 'created_at'].join(',')]
+    .concat(rows.map(r => [r.id, r.type, r.amount, r.balance_after == null ? '' : r.balance_after,
+      r.username == null ? '平台' : r.username, r.ref_type == null ? '' : r.ref_type, r.ref_id == null ? '' : r.ref_id,
+      '"' + String(r.remark == null ? '' : r.remark).replace(/"/g, '""') + '"', r.created_at].join(',')));
+
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', 'attachment; filename="ledger-' + start + '-to-' + end + '.csv"');
+  res.send('\ufeff' + csvLines.join('\n'));
+});
+
+// 数据库备份
+router.get('/backups', (req, res) => {
+  const fs = require('fs');
+  const path = require('path');
+  const dir = path.join(__dirname, '..', '..', 'backups');
+  const items = fs.existsSync(dir)
+    ? fs.readdirSync(dir).filter(f => f.endsWith('.db')).map(f => ({ name: f, size: fs.statSync(path.join(dir, f)).size, created: fs.statSync(path.join(dir, f)).mtime }))
+      .sort((a, b) => b.name.localeCompare(a.name))
+    : [];
+  res.json({ items });
+});
+
+router.post('/backups', (req, res) => {
+  const fs = require('fs');
+  const path = require('path');
+  const dir = path.join(__dirname, '..', '..', 'backups');
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  const name = 'backup-' + new Date().toISOString().replace(/[:T]/g, '-').slice(0, 19) + '.db';
+  db.backup(path.join(dir, name))
+    .then(() => {
+      logAudit(req.user.id, 'backup_database', 'backup', null, { file: name }, req.ip);
+      res.json({ message: '备份完成', file: name });
+    })
+    .catch(err => res.status(500).json({ error: '备份失败: ' + err.message }));
 });
 
 module.exports = router;

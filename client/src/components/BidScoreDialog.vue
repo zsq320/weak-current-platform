@@ -7,7 +7,7 @@
   >
     <div v-if="bid" class="score-content">
       <!-- 投标人信息 -->
-      <el-descriptions :column="2" border size="small" style="margin-bottom: 20px">
+      <el-descriptions :column="1" border size="small" style="margin-bottom: 20px">
         <el-descriptions-item label="工程师">{{ bid.real_name || bid.username }}</el-descriptions-item>
         <el-descriptions-item label="报价">
           <span class="price">¥{{ bid.price?.toLocaleString() }}</span>
@@ -117,7 +117,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import api from '../api'
 
@@ -129,10 +129,13 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue', 'success'])
 
-const visible = computed({
-  get: () => props.modelValue,
-  set: (val) => emit('update:modelValue', val)
-})
+// 本地可见状态：与父组件 modelValue 双向同步，
+// 保证无论父组件事件链路如何，对话框自身都能可靠关闭
+const localVisible = ref(props.modelValue)
+watch(() => props.modelValue, (v) => { localVisible.value = v })
+watch(localVisible, (v) => { if (v !== props.modelValue) emit('update:modelValue', v) })
+
+const visible = localVisible
 
 const loading = ref(false)
 
@@ -196,8 +199,7 @@ const resetForm = () => {
   }
 }
 
-// 监听弹窗打开
-import { watch } from 'vue'
+// 监听弹窗打开（打开时回填已有评分）
 watch(visible, (val) => {
   if (val && props.bid) {
     // 如果已有评分，填充表单
@@ -227,6 +229,7 @@ watch(visible, (val) => {
 .score-row {
   display: flex;
   align-items: center;
+  width: 100%;
 }
 
 .score-value {

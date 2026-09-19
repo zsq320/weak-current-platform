@@ -32,6 +32,12 @@ function onTokenRefreshed(newToken) {
   refreshSubscribers = []
 }
 
+// 刷新失败时，拒绝所有排队中的请求，避免永久挂起
+function onTokenRefreshFailed(error) {
+  refreshSubscribers.forEach(cb => cb(null, error))
+  refreshSubscribers = []
+}
+
 // 请求拦截器
 api.interceptors.request.use(config => {
   const token = localStorage.getItem('accessToken')
@@ -58,10 +64,14 @@ api.interceptors.response.use(
 
       // 如果正在刷新，将请求加入队列
       if (isRefreshing) {
-        return new Promise((resolve) => {
-          subscribeTokenRefresh((newToken) => {
-            originalRequest.headers.Authorization = `Bearer ${newToken}`
-            resolve(api(originalRequest))
+        return new Promise((resolve, reject) => {
+          subscribeTokenRefresh((newToken, refreshError) => {
+            if (refreshError || !newToken) {
+              reject(refreshError || new Error('令牌刷新失败'))
+            } else {
+              originalRequest.headers.Authorization = `Bearer ${newToken}`
+              resolve(api(originalRequest))
+            }
           })
         })
       }
@@ -87,7 +97,8 @@ api.interceptors.response.use(
 
         return api(originalRequest)
       } catch (refreshError) {
-        // 刷新失败，清除本地存储并跳转登录
+        // 刷新失败，清除本地存储并跳转登录；同时唤醒所有排队请求
+        onTokenRefreshFailed(refreshError)
         clearAuth()
         ElMessage.warning('登录已过期，请重新登录')
         return Promise.reject(refreshError)

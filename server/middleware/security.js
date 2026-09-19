@@ -41,12 +41,16 @@ const helmetConfig = helmet({
 /**
  * 全局 API 速率限制
  */
+// 测试旁路：仅在显式设置 DISABLE_RATE_LIMIT=1 时生效（用于自动化回归，生产勿配）
+const testBypass = { skip: () => process.env.DISABLE_RATE_LIMIT === '1' };
+
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15分钟
-  max: 100, // 每个IP最多100个请求
+  max: 300, // 每个IP最多300个请求（正常前端页面浏览+轮询所需）
   message: { error: '请求过于频繁，请稍后再试' },
   standardHeaders: true,
-  legacyHeaders: false
+  legacyHeaders: false,
+  ...testBypass
 });
 
 /**
@@ -69,7 +73,8 @@ const verificationLimiter = rateLimit({
   max: 3, // 最多3次
   message: { error: '验证码发送过于频繁，请稍后再试' },
   standardHeaders: true,
-  legacyHeaders: false
+  legacyHeaders: false,
+  ...testBypass
 });
 
 /**
@@ -80,18 +85,21 @@ const registerLimiter = rateLimit({
   max: 5, // 最多5次注册
   message: { error: '注册过于频繁，请稍后再试' },
   standardHeaders: true,
-  legacyHeaders: false
+  legacyHeaders: false,
+  ...testBypass
 });
 
 /**
- * 敏感操作速率限制（如充值）
+ * 敏感操作速率限制（如充值、管理后台）
+ * 管理后台一个页面切换即产生多次请求，100/小时可兼顾防护与正常使用
  */
 const sensitiveLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1小时
-  max: 20, // 最多20次
+  max: 100, // 最多100次
   message: { error: '操作过于频繁，请稍后再试' },
   standardHeaders: true,
-  legacyHeaders: false
+  legacyHeaders: false,
+  ...testBypass
 });
 
 /**
@@ -99,17 +107,25 @@ const sensitiveLimiter = rateLimit({
  */
 const corsConfig = {
   origin: function (origin, callback) {
-    // 允许的源列表
+    // 允许的源列表（含 ngrok 公网隧道域名）
     const allowedOrigins = process.env.CORS_ORIGINS
       ? process.env.CORS_ORIGINS.split(',')
-      : ['http://localhost:3000', 'http://localhost:5173', 'http://127.0.0.1:3000'];
+      : [
+          'http://localhost:3000',
+          'http://localhost:5173',
+          'http://127.0.0.1:3000',
+          'https://unlocking-headboard-deception.ngrok-free.dev'
+        ];
 
     // 开发环境允许所有来源
     if (process.env.NODE_ENV !== 'production') {
       return callback(null, true);
     }
 
-    if (!origin || allowedOrigins.includes(origin)) {
+    const allowed = !origin
+      || allowedOrigins.includes(origin)
+      || /^https:\/\/[a-z0-9-]+\.ngrok-free\.dev$/.test(origin);
+    if (allowed) {
       callback(null, true);
     } else {
       callback(new Error('CORS 不允许的来源'));

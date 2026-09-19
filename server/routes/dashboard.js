@@ -18,16 +18,17 @@ router.get('/client', authMiddleware, requireRole('user'), (req, res) => {
   const userId = req.user.id;
 
   const projectsByStatus = db.prepare('SELECT status, COUNT(*) as count FROM projects WHERE user_id = ? GROUP BY status').all(userId);
-  const totalSpent = db.prepare("SELECT COALESCE(SUM(amount), 0) as total FROM contracts WHERE owner_id = ? AND status = 'completed'").get(userId).total;
+  // 按资金账本计算实际支出（结算扣款；托管冻结/释放相互抵消）
+  const totalSpent = db.prepare("SELECT COALESCE(SUM(-amount), 0) as total FROM ledger WHERE user_id = ? AND type = 'settlement'").get(userId).total;
   const activeContracts = db.prepare("SELECT COUNT(*) as count FROM contracts WHERE owner_id = ? AND status = 'active'").get(userId).count;
   const totalProjects = db.prepare('SELECT COUNT(*) as count FROM projects WHERE user_id = ?').get(userId).count;
   const pendingBids = db.prepare(`SELECT COUNT(*) as count FROM bids b JOIN projects p ON b.project_id = p.id WHERE p.user_id = ? AND b.status = 'pending'`).get(userId).count;
   const recentProjects = db.prepare('SELECT id, title, status, budget, created_at FROM projects WHERE user_id = ? ORDER BY created_at DESC LIMIT 5').all(userId);
 
-  // 月度支出趋势
+  // 月度支出趋势（按账本实际结算支出）
   const monthlySpending = db.prepare(`
-    SELECT strftime('%Y-%m', completed_at) as month, SUM(amount) as total
-    FROM contracts WHERE owner_id = ? AND status = 'completed'
+    SELECT strftime('%Y-%m', created_at) as month, SUM(-amount) as total
+    FROM ledger WHERE user_id = ? AND type = 'settlement' AND amount < 0
     GROUP BY month ORDER BY month DESC LIMIT 6
   `).all(userId).reverse();
 
@@ -39,7 +40,8 @@ router.get('/engineer', authMiddleware, requireRole('engineer'), (req, res) => {
   const userId = req.user.id;
 
   const bidsByStatus = db.prepare('SELECT status, COUNT(*) as count FROM bids WHERE engineer_id = ? GROUP BY status').all(userId);
-  const totalEarned = db.prepare("SELECT COALESCE(SUM(amount), 0) as total FROM contracts WHERE engineer_id = ? AND status = 'completed'").get(userId).total;
+  // 按资金账本计算实际到账（已扣平台服务费与质保金）
+  const totalEarned = db.prepare("SELECT COALESCE(SUM(amount), 0) as total FROM ledger WHERE user_id = ? AND type = 'settlement' AND amount > 0").get(userId).total;
   const activeContracts = db.prepare("SELECT COUNT(*) as count FROM contracts WHERE engineer_id = ? AND status = 'active'").get(userId).count;
   const completedProjects = db.prepare("SELECT COUNT(*) as count FROM contracts WHERE engineer_id = ? AND status = 'completed'").get(userId).count;
   const totalBids = db.prepare('SELECT COUNT(*) as count FROM bids WHERE engineer_id = ?').get(userId).count;
@@ -47,10 +49,10 @@ router.get('/engineer', authMiddleware, requireRole('engineer'), (req, res) => {
   const recentBids = db.prepare(`SELECT b.id, b.price, b.status, b.created_at, p.title as project_title, p.status as project_status
     FROM bids b JOIN projects p ON b.project_id = p.id WHERE b.engineer_id = ? ORDER BY b.created_at DESC LIMIT 5`).all(userId);
 
-  // 月度收入趋势
+  // 月度收入趋势（按账本实际到账，已扣佣金/质保金）
   const monthlyEarnings = db.prepare(`
-    SELECT strftime('%Y-%m', completed_at) as month, SUM(amount) as total
-    FROM contracts WHERE engineer_id = ? AND status = 'completed'
+    SELECT strftime('%Y-%m', created_at) as month, SUM(amount) as total
+    FROM ledger WHERE user_id = ? AND type = 'settlement' AND amount > 0
     GROUP BY month ORDER BY month DESC LIMIT 6
   `).all(userId).reverse();
 

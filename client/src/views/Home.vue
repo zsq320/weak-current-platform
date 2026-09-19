@@ -12,7 +12,7 @@
     </div>
 
     <div class="filters">
-      <el-input v-model="filters.keyword" placeholder="搜索工程..." clearable @keyup.enter="fetchProjects" style="width: 300px">
+      <el-input v-model="filters.keyword" placeholder="搜索工程..." clearable @keyup.enter="fetchProjects" class="search-input">
         <template #prefix><el-icon><Search /></el-icon></template>
       </el-input>
       <el-select v-model="filters.category" placeholder="工程分类" clearable @change="fetchProjects">
@@ -44,6 +44,12 @@
       @current-change="fetchProjects"
       style="justify-content: center; margin-top: 20px"
     />
+
+    <footer class="home-footer">
+      <router-link to="/agreement/user_agreement">用户服务协议</router-link>
+      <span>·</span>
+      <router-link to="/agreement/privacy">隐私政策</router-link>
+    </footer>
   </div>
 </template>
 
@@ -127,4 +133,21 @@ onMounted(() => {
 :deep(.el-select__wrapper) {
   border-radius: 10px;
 }
+
+.search-input { width: 300px; }
+.filters :deep(.el-select) { width: 150px; }
+
+@media (max-width: 768px) {
+  .hero { padding: 36px 16px; border-radius: 12px; margin-bottom: 20px; }
+  .hero h1 { font-size: 24px; }
+  .hero p { font-size: 14px; margin-bottom: 20px; }
+  .search-input { width: 100%; }
+  .filters { gap: 10px; margin-bottom: 16px; }
+  .filters :deep(.el-select) { width: calc(50% - 5px); }
+}
+.home-footer {
+  text-align: center; padding: 20px 0 6px; color: #909399; font-size: 12px;
+}
+.home-footer a { color: #909399; margin: 0 6px; text-decoration: none; }
+.home-footer a:hover { color: #409eff; }
 </style>

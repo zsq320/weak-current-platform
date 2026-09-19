@@ -16,9 +16,12 @@ try {
 }
 
 const express = require('express');
+const compression = require('compression');
 const cors = require('cors');
 const path = require('path');
 const os = require('os');
+const db = require('./db');
+const logger = require('./utils/logger');
 const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
 const {
   helmetConfig,
@@ -69,25 +72,42 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // 请求日志
+app.use(logger.middleware());
 app.use((req, res, next) => {
   if (req.path.startsWith('/api')) {
-    console.log(`[${new Date().toLocaleTimeString()}] ${req.method} ${req.path}`);
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
   }
   next();
 });
 
-// 静态文件
-app.use(express.static(path.join(__dirname, '..', 'client', 'dist')));
+// gzip 压缩（公网访问大幅减少传输体积）
+app.use(compression());
+
+// 静态文件：带哈希的 assets 可长期强缓存；index.html 不缓存保证发版即生效
+app.use(express.static(path.join(__dirname, '..', 'client', 'dist'), {
+  setHeaders(res, filePath) {
+    if (filePath.includes(`${path.sep}assets${path.sep}`)) {
+      res.setHeader('Cache-Control', 'public, max-age=2592000, immutable');
+    } else if (filePath.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-cache');
+    }
+  }
+}));
 
 // 上传文件目录
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // ============ API 路由（带速率限制）============
+// 健康检查（供运维探活，无需认证）
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', uptime: process.uptime(), timestamp: new Date().toISOString() });
+});
+
 // 认证相关（严格限制）
 app.use('/api/auth/login', loginLimiter);
 app.use('/api/auth/login/phone', loginLimiter);
 app.use('/api/auth/register', registerLimiter);
+app.use('/api/auth/deposit', sensitiveLimiter);
 app.use('/api/auth', require('./routes/auth'));
 
 // 验证码（限制发送频率）
@@ -97,12 +117,52 @@ app.use('/api/verification', verificationLimiter, require('./routes/verification
 app.use('/api/projects', apiLimiter, require('./routes/projects'));
 app.use('/api/projects/:projectId/tasks', apiLimiter, require('./routes/tasks'));
 app.use('/api/projects/:projectId/milestones', apiLimiter, require('./routes/milestones'));
+app.use('/api/projects/:projectId/construction', apiLimiter, require('./routes/construction'));
 app.use('/api/bids', apiLimiter, require('./routes/bids'));
 app.use('/api/contracts', apiLimiter, require('./routes/contracts'));
 app.use('/api/reviews', apiLimiter, require('./routes/reviews'));
 app.use('/api/messages', apiLimiter, require('./routes/messages'));
 app.use('/api/dashboard', apiLimiter, require('./routes/dashboard'));
+app.use('/api/finance', sensitiveLimiter, require('./routes/finance'));
+app.use('/api/biz', apiLimiter, require('./routes/biz'));
+app.use('/api/notify', require('./routes/notify'));
 app.use('/api/admin', sensitiveLimiter, require('./routes/admin'));
+
+// ============ 商用化定时任务：质保金到期自动释放 ============
+const { postLedger } = require('./utils/ledger');
+function releaseDueRetentions() {
+  try {
+    const due = db.prepare(`
+      SELECT c.*, p.title FROM contracts c JOIN projects p ON c.project_id = p.id
+      WHERE c.retention_amount > 0 AND c.retention_released_at IS NULL AND c.status = 'completed'
+        AND datetime(c.completed_at, '+' || c.warranty_months || ' months') <= datetime('now')
+    `).all();
+    due.forEach(c => {
+      const tx = db.transaction(() => {
+        postLedger({
+          userId: c.engineer_id,
+          amount: c.retention_amount,
+          type: 'retention_release',
+          refType: 'contract',
+          refId: c.id,
+          remark: `质保金到期释放（合同#${c.id}「${c.title}」）`
+        });
+        recordPlatformIncomeRefund(c);
+      });
+      tx();
+      console.log(`[质保金] 合同#${c.id} 质保金 ${c.retention_amount} 元已释放给工程师#${c.engineer_id}`);
+    });
+  } catch (err) {
+    console.error('[质保金] 释放任务失败:', err);
+  }
+}
+function recordPlatformIncomeRefund(c) {
+  const { recordPlatformIncome } = require('./utils/ledger');
+  recordPlatformIncome({ type: 'retention', amount: -c.retention_amount, refType: 'contract', refId: c.id, remark: `质保金释放核销（合同#${c.id}）` });
+  db.prepare('UPDATE contracts SET retention_released_at = CURRENT_TIMESTAMP WHERE id = ?').run(c.id);
+}
+setInterval(releaseDueRetentions, 60 * 60 * 1000); // 每小时检查一次
+releaseDueRetentions();
 
 // 前端路由回退
 app.get('*', (req, res) => {

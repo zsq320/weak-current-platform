@@ -70,6 +70,14 @@
           <el-input v-model="form.email_code" placeholder="请输入6位验证码" maxlength="6" />
         </el-form-item>
 
+        <el-form-item>
+          <el-checkbox v-model="form.accept_agreement">
+            我已阅读并同意
+            <router-link to="/agreement/user_agreement" target="_blank">《用户服务协议》</router-link>和
+            <router-link to="/agreement/privacy" target="_blank">《隐私政策》</router-link>
+          </el-checkbox>
+        </el-form-item>
+
         <el-button type="primary" native-type="submit" :loading="loading" style="width: 100%">
           注册
         </el-button>
@@ -105,7 +113,8 @@ const form = reactive({
   phone: '',
   phone_code: '',
   email: '',
-  email_code: ''
+  email_code: '',
+  accept_agreement: false
 })
 
 const PHONE_REGEX = /^1[3-9]\d{9}$/
@@ -184,6 +193,9 @@ const handleRegister = async () => {
   if (!form.email_code) {
     return ElMessage.warning('请输入邮箱验证码')
   }
+  if (!form.accept_agreement) {
+    return ElMessage.warning('请阅读并勾选同意《用户服务协议》和《隐私政策》')
+  }
 
   loading.value = true
   try {
@@ -207,7 +219,7 @@ const handleRegister = async () => {
   padding: 20px;
 }
 .auth-card {
-  width: 500px;
+  width: min(500px, 92vw);
 }
 .auth-card h2 {
   text-align: center;

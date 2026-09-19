@@ -208,10 +208,13 @@ const emit = defineEmits(['update:modelValue', 'success'])
 const router = useRouter()
 const userStore = useUserStore()
 
-const visible = computed({
-  get: () => props.modelValue,
-  set: (val) => emit('update:modelValue', val)
-})
+// 本地可见状态：与父组件 modelValue 双向同步，
+// 保证无论父组件事件链路如何，对话框自身都能可靠关闭
+const localVisible = ref(props.modelValue)
+watch(() => props.modelValue, (v) => { localVisible.value = v })
+watch(localVisible, (v) => { if (v !== props.modelValue) emit('update:modelValue', v) })
+
+const visible = localVisible
 
 const currentStep = ref(0)
 const loading = ref(false)

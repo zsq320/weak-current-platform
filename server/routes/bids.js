@@ -15,7 +15,7 @@
 
 const express = require('express');
 const db = require('../db');
-const { authMiddleware, requireRole, optionalAuth } = require('../middleware/auth');
+const { authMiddleware, requireRole } = require('../middleware/auth');
 const { logAudit } = require('../middleware/audit');
 
 const router = express.Router();
@@ -42,8 +42,16 @@ router.post('/', authMiddleware, requireRole('engineer'), (req, res) => {
     return res.status(400).json({ error: '工程ID和报价不能为空' });
   }
 
-  if (price <= 0) {
-    return res.status(400).json({ error: '报价必须大于0' });
+  const bidPrice = Number(price);
+  if (!Number.isFinite(bidPrice) || bidPrice <= 0 || bidPrice > 99999999) {
+    return res.status(400).json({ error: '报价必须为大于0的数字' });
+  }
+  if (duration && (isNaN(Number(duration)) || Number(duration) <= 0 || Number(duration) > 9999)) {
+    return res.status(400).json({ error: '工期必须为正整数天数' });
+  }
+  const expYears = Number(experience_years) || 0;
+  if (expYears < 0 || expYears > 50) {
+    return res.status(400).json({ error: '工作年限不合法' });
   }
 
   const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(Number(project_id));
@@ -61,29 +69,80 @@ router.post('/', authMiddleware, requireRole('engineer'), (req, res) => {
   `).run(
     Number(project_id),
     req.user.id,
-    price,
+    bidPrice,
     message || null,
-    duration || null,
+    duration ? String(Number(duration)) : null,
     duration_unit || 'days',
     qualifications || null,
-    experience_years || 0
+    Math.round(expYears)
   );
 
   // 发送通知给项目所有者
   db.prepare('INSERT INTO messages (from_user_id, to_user_id, title, content, type) VALUES (?, ?, ?, ?, ?)').run(
     req.user.id, project.user_id, '新的投标',
-    `用户 ${req.user.username} 对您的工程「${project.title}」投标，报价 ${price} 元`, 'bid'
+    `用户 ${req.user.username} 对您的工程「${project.title}」投标，报价 ${bidPrice} 元`, 'bid'
   );
 
   logAudit(req.user.id, 'submit_bid', 'bid', result.lastInsertRowid, `project:${project_id},price:${price}`, req.ip);
   res.json({ id: result.lastInsertRowid, message: '投标成功' });
 });
 
-// 获取工程的投标列表（支持排序和筛选）
-router.get('/project/:projectId', optionalAuth, (req, res) => {
+// 获取我的投标（必须注册在 /:id 之前，否则会被动态路由拦截）
+router.get('/my', authMiddleware, (req, res) => {
+  try {
+    const { status, sort, order } = req.query;
+
+    let sql = `
+      SELECT b.*,
+             p.title as project_title, p.status as project_status,
+             p.category, p.budget, p.deadline,
+             bs.total_score,
+             (SELECT COUNT(*) FROM bids WHERE project_id = b.project_id) as total_bids
+      FROM bids b
+      JOIN projects p ON b.project_id = p.id
+      LEFT JOIN bid_scores bs ON b.id = bs.bid_id
+      WHERE b.engineer_id = ?
+    `;
+    const params = [req.user.id];
+
+    if (status && status !== 'all') {
+      sql += ' AND b.status = ?';
+      params.push(status);
+    }
+
+    const sortField = {
+      'created_at': 'b.created_at',
+      'price': 'b.price',
+      'total_score': 'COALESCE(bs.total_score, 0)'
+    }[sort] || 'b.created_at';
+
+    const sortOrder = order === 'asc' ? 'ASC' : 'DESC';
+    sql += ` ORDER BY ${sortField} ${sortOrder}`;
+
+    const bids = db.prepare(sql).all(...params);
+    res.json(bids);
+  } catch (err) {
+    console.error('获取我的投标失败:', err);
+    res.status(500).json({ error: '获取投标列表失败' });
+  }
+});
+
+// 获取工程的投标列表（仅项目所有者和管理员，防止投标信息与工程师联系方式泄露）
+router.get('/project/:projectId', authMiddleware, (req, res) => {
   try {
     const { projectId } = req.params;
     const { sort, order, status, min_price, max_price, keyword } = req.query;
+
+    const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(Number(projectId));
+    if (!project) {
+      return res.status(404).json({ error: '工程不存在' });
+    }
+
+    const isOwner = project.user_id === req.user.id;
+    const isAdmin = req.user.role === 'admin';
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({ error: '只有工程发布者或管理员可以查看投标列表' });
+    }
 
     let sql = `
       SELECT b.*,
@@ -136,9 +195,6 @@ router.get('/project/:projectId', optionalAuth, (req, res) => {
 
     const bids = db.prepare(sql).all(...params);
 
-    // 获取工程信息
-    const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(Number(projectId));
-
     res.json({
       bids,
       project: {
@@ -155,14 +211,14 @@ router.get('/project/:projectId', optionalAuth, (req, res) => {
   }
 });
 
-// 获取单个投标详情
-router.get('/:id', optionalAuth, (req, res) => {
+// 获取单个投标详情（仅投标本人、项目所有者和管理员可见）
+router.get('/:id', authMiddleware, (req, res) => {
   try {
     const bid = db.prepare(`
       SELECT b.*,
              u.username, u.real_name, u.phone, u.email, u.avatar,
              u.certification, u.certification_status, u.balance,
-             p.title as project_title, p.budget as project_budget, p.status as project_status,
+             p.title as project_title, p.budget as project_budget, p.status as project_status, p.user_id as owner_id,
              bs.price_score, bs.duration_score, bs.qualification_score, bs.technical_score,
              bs.total_score, bs.price_comment, bs.duration_comment,
              bs.qualification_comment, bs.technical_comment,
@@ -177,6 +233,13 @@ router.get('/:id', optionalAuth, (req, res) => {
 
     if (!bid) {
       return res.status(404).json({ error: '投标不存在' });
+    }
+
+    const isBidOwner = bid.engineer_id === req.user.id;
+    const isProjectOwner = bid.owner_id === req.user.id;
+    const isAdmin = req.user.role === 'admin';
+    if (!isBidOwner && !isProjectOwner && !isAdmin) {
+      return res.status(403).json({ error: '无权查看此投标详情' });
     }
 
     res.json(bid);
@@ -197,6 +260,7 @@ router.post('/:id/accept', authMiddleware, (req, res) => {
   if (!bid) return res.status(404).json({ error: '投标不存在' });
   if (bid.owner_id !== req.user.id) return res.status(403).json({ error: '无权操作' });
   if (bid.project_status !== 'bidding') return res.status(400).json({ error: '工程状态不允许操作' });
+  if (bid.status !== 'pending') return res.status(400).json({ error: '该投标已被处理，无法重复操作' });
 
   // 开始事务
   const acceptBid = db.transaction(() => {
@@ -250,46 +314,6 @@ router.post('/:id/reject', authMiddleware, (req, res) => {
   res.json({ message: '已拒绝投标' });
 });
 
-// 获取我的投标
-router.get('/my', authMiddleware, (req, res) => {
-  try {
-    const { status, sort, order } = req.query;
-
-    let sql = `
-      SELECT b.*,
-             p.title as project_title, p.status as project_status,
-             p.category, p.budget, p.deadline,
-             bs.total_score,
-             (SELECT COUNT(*) FROM bids WHERE project_id = b.project_id) as total_bids
-      FROM bids b
-      JOIN projects p ON b.project_id = p.id
-      LEFT JOIN bid_scores bs ON b.id = bs.bid_id
-      WHERE b.engineer_id = ?
-    `;
-    const params = [req.user.id];
-
-    if (status && status !== 'all') {
-      sql += ' AND b.status = ?';
-      params.push(status);
-    }
-
-    const sortField = {
-      'created_at': 'b.created_at',
-      'price': 'b.price',
-      'total_score': 'COALESCE(bs.total_score, 0)'
-    }[sort] || 'b.created_at';
-
-    const sortOrder = order === 'asc' ? 'ASC' : 'DESC';
-    sql += ` ORDER BY ${sortField} ${sortOrder}`;
-
-    const bids = db.prepare(sql).all(...params);
-    res.json(bids);
-  } catch (err) {
-    console.error('获取我的投标失败:', err);
-    res.status(500).json({ error: '获取投标列表失败' });
-  }
-});
-
 // ============= 评分相关接口 =============
 
 // 提交投标评分（仅项目所有者和管理员）
@@ -298,12 +322,15 @@ router.post('/:id/score', authMiddleware, (req, res) => {
     const { price_score, duration_score, qualification_score, technical_score,
             price_comment, duration_comment, qualification_comment, technical_comment } = req.body;
 
-    // 验证输入
-    const scores = { price_score, duration_score, qualification_score, technical_score };
-    for (const [key, value] of Object.entries(scores)) {
-      if (value < 0 || value > 25) {
+    // 验证输入（必须为 0-25 的数字）
+    const rawScores = { price_score, duration_score, qualification_score, technical_score };
+    const scores = {};
+    for (const [key, value] of Object.entries(rawScores)) {
+      const num = Number(value);
+      if (!Number.isFinite(num) || num < 0 || num > 25) {
         return res.status(400).json({ error: `${key} 必须在 0-25 之间` });
       }
+      scores[key] = Math.round(num);
     }
 
     const bid = db.prepare(`
@@ -321,7 +348,7 @@ router.post('/:id/score', authMiddleware, (req, res) => {
     }
 
     // 计算总分
-    const total_score = price_score + duration_score + qualification_score + technical_score;
+    const total_score = scores.price_score + scores.duration_score + scores.qualification_score + scores.technical_score;
 
     // 保存评分
     const existing = db.prepare('SELECT id FROM bid_scores WHERE bid_id = ?').get(Number(req.params.id));
@@ -334,7 +361,7 @@ router.post('/:id/score', authMiddleware, (req, res) => {
           total_score = ?, scored_by = ?, updated_at = CURRENT_TIMESTAMP
         WHERE bid_id = ?
       `).run(
-        price_score, duration_score, qualification_score, technical_score,
+        scores.price_score, scores.duration_score, scores.qualification_score, scores.technical_score,
         price_comment, duration_comment, qualification_comment, technical_comment,
         total_score, req.user.id, Number(req.params.id)
       );
@@ -345,7 +372,7 @@ router.post('/:id/score', authMiddleware, (req, res) => {
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         Number(req.params.id), bid.project_id,
-        price_score, duration_score, qualification_score, technical_score,
+        scores.price_score, scores.duration_score, scores.qualification_score, scores.technical_score,
         price_comment, duration_comment, qualification_comment, technical_comment,
         total_score, req.user.id
       );
@@ -370,9 +397,18 @@ router.post('/:id/score', authMiddleware, (req, res) => {
   }
 });
 
-// 获取工程的评分排名
-router.get('/project/:projectId/rankings', optionalAuth, (req, res) => {
+// 获取工程的评分排名（仅项目所有者和管理员）
+router.get('/project/:projectId/rankings', authMiddleware, (req, res) => {
   try {
+    const project = db.prepare('SELECT user_id FROM projects WHERE id = ?').get(Number(req.params.projectId));
+    if (!project) return res.status(404).json({ error: '工程不存在' });
+
+    const isOwner = project.user_id === req.user.id;
+    const isAdmin = req.user.role === 'admin';
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({ error: '只有工程发布者或管理员可以查看评分排名' });
+    }
+
     const rankings = db.prepare(`
       SELECT
         b.id, b.price, b.duration, b.experience_years,
@@ -433,15 +469,24 @@ router.get('/project/:projectId/export', authMiddleware, (req, res) => {
       ORDER BY COALESCE(bs.total_score, 0) DESC
     `).all(Number(req.params.projectId));
 
-    // 生成 CSV
+    // 生成 CSV（转义引号并防御公式注入）
     if (bids.length === 0) {
       return res.status(404).json({ error: '暂无投标数据' });
     }
 
+    const escapeCsv = (val) => {
+      let str = val === null || val === undefined ? '' : String(val);
+      // 防止 Excel 公式注入（=、+、-、@ 开头的单元格按文本处理）
+      if (/^[=+\-@\t\r]/.test(str)) {
+        str = "'" + str;
+      }
+      return `"${str.replace(/"/g, '""')}"`;
+    };
+
     const headers = Object.keys(bids[0]);
     const csvContent = [
       '﻿' + headers.join(','), // BOM for Excel
-      ...bids.map(row => headers.map(h => `"${row[h] || ''}"`).join(','))
+      ...bids.map(row => headers.map(h => escapeCsv(row[h])).join(','))
     ].join('\n');
 
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');

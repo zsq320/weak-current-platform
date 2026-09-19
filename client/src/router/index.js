@@ -21,8 +21,12 @@ const routes = [
   { path: '/contracts', name: 'Contracts', component: () => import('../views/Contracts.vue'), meta: { requiresAuth: true } },
   { path: '/messages', name: 'Messages', component: () => import('../views/Messages.vue'), meta: { requiresAuth: true } },
   { path: '/profile', name: 'Profile', component: () => import('../views/Profile.vue'), meta: { requiresAuth: true } },
+  { path: '/wallet', name: 'Wallet', component: () => import('../views/Wallet.vue'), meta: { requiresAuth: true } },
+  { path: '/agreement/:type', name: 'Agreement', component: () => import('../views/AgreementView.vue') },
   { path: '/dashboard', name: 'Dashboard', component: () => import('../views/Dashboard.vue'), meta: { requiresAuth: true } },
-  { path: '/admin', name: 'Admin', component: () => import('../views/Admin.vue'), meta: { requiresAuth: true, role: ['admin'] } }
+  { path: '/admin', name: 'Admin', component: () => import('../views/Admin.vue'), meta: { requiresAuth: true, role: ['admin'] } },
+  // 未匹配路径兜底，避免白屏
+  { path: '/:pathMatch(.*)*', redirect: '/' }
 ]
 
 const router = createRouter({

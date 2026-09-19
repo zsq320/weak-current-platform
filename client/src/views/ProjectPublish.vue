@@ -70,5 +70,6 @@ const handleSubmit = async () => {
 
 <style scoped>
 .publish-page { max-width: 700px; margin: 0 auto; }
+@media (max-width: 768px) { .publish-page { padding: 0 4px; } }
 h2 { margin: 0; }
 </style>

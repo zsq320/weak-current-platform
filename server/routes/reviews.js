@@ -18,6 +18,12 @@ router.post('/', authMiddleware, (req, res) => {
   const { contract_id, rating, comment } = req.body;
   if (!contract_id || !rating) return res.status(400).json({ error: '合同ID和评分不能为空' });
 
+  const ratingNum = Number(rating);
+  if (!Number.isInteger(ratingNum) || ratingNum < 1 || ratingNum > 5) {
+    return res.status(400).json({ error: '评分必须为1-5的整数' });
+  }
+  const commentText = comment ? String(comment).slice(0, 500) : null;
+
   const contract = db.prepare('SELECT * FROM contracts WHERE id = ?').get(Number(contract_id));
   if (!contract) return res.status(404).json({ error: '合同不存在' });
   if (contract.status !== 'completed') return res.status(400).json({ error: '只能评价已完成的合同' });
@@ -35,12 +41,12 @@ router.post('/', authMiddleware, (req, res) => {
   if (existing) return res.status(400).json({ error: '您已评价过此合同' });
 
   const result = db.prepare('INSERT INTO reviews (contract_id, from_user_id, to_user_id, rating, comment) VALUES (?, ?, ?, ?, ?)')
-    .run(Number(contract_id), req.user.id, to_user_id, rating, comment);
+    .run(Number(contract_id), req.user.id, to_user_id, ratingNum, commentText);
 
   const project = db.prepare('SELECT title FROM projects WHERE id = ?').get(contract.project_id);
   db.prepare('INSERT INTO messages (from_user_id, to_user_id, title, content, type) VALUES (?, ?, ?, ?, ?)').run(
     req.user.id, to_user_id, '收到新评价',
-    `您在工程「${project.title}」中收到一条 ${rating} 星评价`, 'system'
+    `您在工程「${project.title}」中收到一条 ${ratingNum} 星评价`, 'system'
   );
 
   res.json({ id: result.lastInsertRowid, message: '评价成功' });

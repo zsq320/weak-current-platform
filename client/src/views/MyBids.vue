@@ -24,25 +24,25 @@
 
       <!-- 统计卡片 -->
       <el-row :gutter="16" style="margin-bottom: 20px">
-        <el-col :span="6">
+        <el-col :xs="12" :md="6">
           <el-card shadow="hover" class="stat-card">
             <div class="stat-value">{{ stats.total }}</div>
             <div class="stat-label">总投标数</div>
           </el-card>
         </el-col>
-        <el-col :span="6">
+        <el-col :xs="12" :md="6">
           <el-card shadow="hover" class="stat-card">
             <div class="stat-value" style="color: #e6a23c">{{ stats.pending }}</div>
             <div class="stat-label">待定中</div>
           </el-card>
         </el-col>
-        <el-col :span="6">
+        <el-col :xs="12" :md="6">
           <el-card shadow="hover" class="stat-card">
             <div class="stat-value" style="color: #67c23a">{{ stats.accepted }}</div>
             <div class="stat-label">已中标</div>
           </el-card>
         </el-col>
-        <el-col :span="6">
+        <el-col :xs="12" :md="6">
           <el-card shadow="hover" class="stat-card">
             <div class="stat-value" style="color: #f56c6c">{{ stats.rejected }}</div>
             <div class="stat-label">未中标</div>

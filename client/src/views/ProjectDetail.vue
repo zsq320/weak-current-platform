@@ -7,7 +7,7 @@
     </el-page-header>
 
     <el-row :gutter="24" style="margin-top: 20px">
-      <el-col :span="16">
+      <el-col :xs="24" :md="16">
         <!-- 标签页切换 -->
         <el-tabs v-model="activeTab" type="border-card">
           <!-- 工程详情标签 -->
@@ -22,7 +22,7 @@
                   </div>
                 </div>
               </template>
-              <el-descriptions :column="2" border>
+              <el-descriptions :column="isMobile ? 1 : 2" border>
                 <el-descriptions-item label="发布者">{{ project.publisher_name || project.publisher }}</el-descriptions-item>
                 <el-descriptions-item label="联系电话">{{ project.publisher_phone || '未填写' }}</el-descriptions-item>
                 <el-descriptions-item label="工程地点">{{ project.location || '未填写' }}</el-descriptions-item>
@@ -33,7 +33,10 @@
                 <el-descriptions-item label="发布时间">{{ project.created_at }}</el-descriptions-item>
               </el-descriptions>
               <div class="description">
-                <h4>工程描述</h4>
+                <h4>
+                  工程描述
+                  <el-button v-if="isOwner" type="primary" size="small" link style="margin-left: 8px" @click="openDescDialog">编辑</el-button>
+                </h4>
                 <p>{{ project.description || '暂无描述' }}</p>
               </div>
             </el-card>
@@ -115,26 +118,26 @@
 
             <!-- 进度统计卡片 -->
             <el-row :gutter="16" style="margin-bottom: 16px">
-              <el-col :span="6">
+              <el-col :xs="12" :md="6">
                 <el-card shadow="hover" class="stat-card">
                   <div class="stat-value">{{ progressStats.overall_progress }}%</div>
                   <div class="stat-label">总体进度</div>
                   <el-progress :percentage="progressStats.overall_progress" :stroke-width="6" :show-text="false" />
                 </el-card>
               </el-col>
-              <el-col :span="6">
+              <el-col :xs="12" :md="6">
                 <el-card shadow="hover" class="stat-card">
                   <div class="stat-value">{{ taskStats.total }}</div>
                   <div class="stat-label">任务总数</div>
                 </el-card>
               </el-col>
-              <el-col :span="6">
+              <el-col :xs="12" :md="6">
                 <el-card shadow="hover" class="stat-card">
                   <div class="stat-value" style="color: #67c23a">{{ taskStats.completed }}</div>
                   <div class="stat-label">已完成</div>
                 </el-card>
               </el-col>
-              <el-col :span="6">
+              <el-col :xs="12" :md="6">
                 <el-card shadow="hover" class="stat-card">
                   <div class="stat-value" style="color: #f56c6c">{{ taskStats.overdue }}</div>
                   <div class="stat-label">已逾期</div>
@@ -158,7 +161,7 @@
             <!-- 任务和里程碑管理 -->
             <el-row :gutter="16">
               <!-- 任务列表 -->
-              <el-col :span="14">
+              <el-col :xs="24" :md="14">
                 <el-card>
                   <template #header>
                     <div class="card-header-row">
@@ -209,7 +212,7 @@
               </el-col>
 
               <!-- 里程碑列表 -->
-              <el-col :span="10">
+              <el-col :xs="24" :md="10">
                 <el-card>
                   <template #header>
                     <div class="card-header-row">
@@ -263,10 +266,20 @@
               <el-tag type="info">请先将项目状态切换为"进行中"</el-tag>
             </el-empty>
           </el-tab-pane>
+
+          <!-- 施工过程管理（所有者/中标工程师） -->
+          <el-tab-pane label="施工管理" name="construction" v-if="showConstruction">
+            <ConstructionPanel :project-id="route.params.id" />
+          </el-tab-pane>
+
+          <!-- 双方沟通 -->
+          <el-tab-pane label="沟通" name="chat" v-if="userStore.isLoggedIn && (['in_progress', 'completed'].includes(project?.status) || isOwner)">
+            <ChatPanel :project-id="route.params.id" />
+          </el-tab-pane>
         </el-tabs>
       </el-col>
 
-      <el-col :span="8">
+      <el-col :xs="24" :md="8">
         <!-- 投标按钮 -->
         <el-card v-if="canBid">
           <template #header><span>参与投标</span></template>
@@ -335,22 +348,35 @@
           <el-input v-model="taskForm.description" type="textarea" :rows="3" placeholder="请输入任务描述" />
         </el-form-item>
         <el-form-item label="负责人">
-          <el-input v-model="taskForm.assignee_id" placeholder="输入用户ID（可选）" />
+          <el-select
+            v-model="taskForm.assignee_id"
+            clearable
+            filterable
+            placeholder="选择负责人（可选）"
+            style="width: 100%"
+          >
+            <el-option
+              v-for="u in assigneeOptions"
+              :key="u.id"
+              :label="u.label"
+              :value="u.id"
+            />
+          </el-select>
         </el-form-item>
         <el-row :gutter="16">
-          <el-col :span="12">
+          <el-col :xs="24" :md="12">
             <el-form-item label="开始日期">
               <el-date-picker v-model="taskForm.start_date" type="date" placeholder="选择日期" style="width: 100%" value-format="YYYY-MM-DD" />
             </el-form-item>
           </el-col>
-          <el-col :span="12">
+          <el-col :xs="24" :md="12">
             <el-form-item label="截止日期">
               <el-date-picker v-model="taskForm.end_date" type="date" placeholder="选择日期" style="width: 100%" value-format="YYYY-MM-DD" />
             </el-form-item>
           </el-col>
         </el-row>
         <el-row :gutter="16">
-          <el-col :span="12">
+          <el-col :xs="24" :md="12">
             <el-form-item label="优先级">
               <el-select v-model="taskForm.priority" style="width: 100%">
                 <el-option label="低" value="low" />
@@ -360,7 +386,7 @@
               </el-select>
             </el-form-item>
           </el-col>
-          <el-col :span="12">
+          <el-col :xs="24" :md="12">
             <el-form-item label="状态">
               <el-select v-model="taskForm.status" style="width: 100%">
                 <el-option label="待开始" value="pending" />
@@ -408,6 +434,26 @@
       </template>
     </el-dialog>
 
+    <!-- 工程描述编辑对话框 -->
+    <el-dialog v-model="descDialogVisible" title="编辑工程描述" width="560px">
+      <el-form label-width="80px">
+        <el-form-item label="工程描述">
+          <el-input
+            v-model="descForm.description"
+            type="textarea"
+            :rows="8"
+            maxlength="5000"
+            show-word-limit
+            placeholder="请输入工程描述（支持换行）"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="descDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="descSaving" @click="saveDescription">保存</el-button>
+      </template>
+    </el-dialog>
+
     <!-- 多步投标表单 -->
     <BidForm
       v-model="showBidForm"
@@ -427,14 +473,16 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch, nextTick } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '../store'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Refresh, Plus, Edit } from '@element-plus/icons-vue'
 import BidForm from '../components/BidForm.vue'
 import BidScoreDialog from '../components/BidScoreDialog.vue'
-import * as echarts from 'echarts'
+import ConstructionPanel from '../components/ConstructionPanel.vue'
+import ChatPanel from '../components/ChatPanel.vue'
+import echarts from '../utils/echarts'
 import api from '../api'
 
 const route = useRoute()
@@ -442,8 +490,6 @@ const router = useRouter()
 const userStore = useUserStore()
 const project = ref(null)
 const bids = ref([])
-const bidLoading = ref(false)
-const bidForm = ref({ price: 0, message: '' })
 const reviewForm = ref({ rating: 5, comment: '' })
 const myContract = ref(null)
 const activeTab = ref('detail')
@@ -495,6 +541,12 @@ const milestoneForm = ref({
   status: 'pending'
 })
 
+// 移动端检测（描述列表单列显示）
+const isMobile = ref(window.innerWidth < 768)
+const handleIsMobileResize = () => { isMobile.value = window.innerWidth < 768 }
+window.addEventListener('resize', handleIsMobileResize)
+onBeforeUnmount(() => window.removeEventListener('resize', handleIsMobileResize))
+
 const statusMap = {
   pending: { text: '待发布', type: 'info' },
   bidding: { text: '招标中', type: 'success' },
@@ -506,9 +558,61 @@ const statusMap = {
 const statusText = computed(() => statusMap[project.value?.status]?.text)
 const statusType = computed(() => statusMap[project.value?.status]?.type)
 const isOwner = computed(() => userStore.user?.id === project.value?.user_id || userStore.user?.role === 'admin')
-const hasBid = computed(() => bids.value.some(b => b.engineer_id === userStore.user?.id))
 const isVerified = computed(() => !!userStore.user?.real_name_verified)
-const canBid = computed(() => userStore.isLoggedIn && isVerified.value && !isOwner.value && project.value?.status === 'bidding' && !hasBid.value)
+// 施工管理标签：所有者/管理员可见；工程师在工程进行中可见（由后端按中标关系授权操作）
+const showConstruction = computed(() => isOwner.value
+  || ['in_progress', 'completed'].includes(project.value?.status))
+// has_bid 由服务端针对当前登录工程师返回，用于防止重复投标
+const canBid = computed(() => userStore.isLoggedIn && isVerified.value && !isOwner.value
+  && project.value?.status === 'bidding' && !project.value?.has_bid
+  && !bids.value.some(b => b.engineer_id === userStore.user?.id))
+
+// 负责人候选：参与投标的工程师 + 项目发布者自己
+const assigneeOptions = computed(() => {
+  const map = new Map()
+  bids.value.forEach(b => {
+    if (b.engineer_id) {
+      map.set(b.engineer_id, {
+        id: b.engineer_id,
+        label: b.real_name ? `${b.real_name}（${b.username}）` : b.username
+      })
+    }
+  })
+  if (userStore.user && project.value) {
+    map.set(userStore.user.id, {
+      id: userStore.user.id,
+      label: userStore.user.real_name ? `${userStore.user.real_name}（${userStore.user.username}）` : userStore.user.username
+    })
+  }
+  return [...map.values()]
+})
+
+// 工程描述编辑
+const descDialogVisible = ref(false)
+const descSaving = ref(false)
+const descForm = ref({ description: '' })
+
+const openDescDialog = () => {
+  descForm.value.description = project.value?.description || ''
+  descDialogVisible.value = true
+}
+
+const saveDescription = async () => {
+  if (!descForm.value.description.trim()) {
+    return ElMessage.warning('描述不能为空')
+  }
+  descSaving.value = true
+  try {
+    await api.put(`/projects/${project.value.id}`, { description: descForm.value.description })
+    ElMessage.success('描述已更新')
+    descDialogVisible.value = false
+    await fetchProject()
+  } catch (e) {
+    ElMessage.error(e.response?.data?.error || '保存失败')
+  } finally {
+    descSaving.value = false
+  }
+}
 const canReview = computed(() => {
   if (!userStore.isLoggedIn || !myContract.value || project.value?.status !== 'completed') return false
   return true
@@ -624,24 +728,54 @@ const openScoreDialog = (bid) => {
 const refreshProgress = async () => {
   progressLoading.value = true
   await Promise.all([fetchTasks(), fetchMilestones()])
+  await nextTick()
+  updateGanttChart()
   progressLoading.value = false
 }
 
 // 更新甘特图
 const updateGanttChart = () => {
-  if (!ganttChart.value || tasks.value.length === 0) return
+  if (!ganttChart.value) return
 
   if (!ganttChartInstance) {
     ganttChartInstance = echarts.init(ganttChart.value)
   }
+  // 切换标签页后容器才可见，先 resize 保证画布尺寸正确
+  ganttChartInstance.resize()
 
-  const projectStart = project.value?.created_at?.split(' ')[0] || new Date().toISOString().split('T')[0]
-  const projectEnd = project.value?.deadline || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+  // 无任务时显示占位提示
+  if (tasks.value.length === 0) {
+    ganttChartInstance.clear()
+    ganttChartInstance.setOption({
+      title: {
+        text: '暂无任务，请先创建任务',
+        left: 'center',
+        top: 'middle',
+        textStyle: { color: '#909399', fontSize: 14, fontWeight: 'normal' }
+      }
+    })
+    return
+  }
+
+  // 时间域取任务/里程碑/项目日期的并集，避免条形被裁切
+  const dates = [project.value?.created_at?.split(' ')[0], project.value?.deadline]
+    .filter(Boolean)
+  tasks.value.forEach(t => {
+    if (t.start_date) dates.push(t.start_date)
+    if (t.end_date) dates.push(t.end_date)
+  })
+  milestones.value.forEach(m => {
+    if (m.due_date) dates.push(m.due_date)
+  })
+  const parsed = dates.map(d => new Date(d).getTime()).filter(t => !Number.isNaN(t))
+  // 至少留出 7 天跨度，避免单日任务宽度为 0
+  const minTime = parsed.length ? Math.min(...parsed) : Date.now()
+  const maxTime = parsed.length ? Math.max(...parsed) + 7 * 24 * 60 * 60 * 1000 : Date.now() + 7 * 24 * 60 * 60 * 1000
 
   const categories = tasks.value.map(t => t.name)
   const data = tasks.value.map((task, index) => {
-    const start = task.start_date || projectStart
-    const end = task.end_date || projectEnd
+    const start = task.start_date || new Date(minTime).toISOString().split('T')[0]
+    const end = task.end_date || new Date(maxTime).toISOString().split('T')[0]
     let color = '#409eff'
 
     if (task.status === 'completed') color = '#67c23a'
@@ -655,6 +789,22 @@ const updateGanttChart = () => {
     }
   })
 
+  const milestoneLines = milestones.value
+    .filter(m => m.due_date)
+    .map(m => ({
+      xAxis: m.due_date,
+      lineStyle: { color: m.status === 'completed' ? '#67c23a' : '#e6a23c', type: 'dashed', width: 2 },
+      label: {
+        formatter: `◆ ${m.name}`,
+        position: 'insideEndTop',
+        color: m.status === 'completed' ? '#67c23a' : '#e6a23c',
+        fontSize: 11
+      },
+      emphasis: { disabled: false }
+    }))
+
+  const priorityText = { low: '低', normal: '普通', high: '高', urgent: '紧急' }
+
   const option = {
     title: {
       text: '任务进度甘特图',
@@ -664,25 +814,29 @@ const updateGanttChart = () => {
     tooltip: {
       formatter: function (params) {
         const task = tasks.value[params.value[0]]
+        if (!task) return ''
         return `
           <strong>${task.name}</strong><br/>
           状态: ${taskStatusText(task.status)}<br/>
+          优先级: ${priorityText[task.priority] || '普通'}<br/>
+          负责人: ${task.assignee_real_name || task.assignee_name || '未分配'}<br/>
           进度: ${task.progress}%<br/>
-          开始: ${params.value[1] || '未设置'}<br/>
-          结束: ${params.value[2] || '未设置'}
+          开始: ${task.start_date || '未设置'}<br/>
+          结束: ${task.end_date || '未设置'}
         `
       }
     },
     grid: {
       left: '3%',
       right: '4%',
+      top: 50,
       bottom: '3%',
       containLabel: true
     },
     xAxis: {
       type: 'time',
-      min: projectStart,
-      max: projectEnd
+      min: minTime,
+      max: maxTime
     },
     yAxis: {
       type: 'category',
@@ -702,7 +856,7 @@ const updateGanttChart = () => {
           shape: {
             x: start[0],
             y: start[1] - height / 2,
-            width: end[0] - start[0],
+            width: Math.max(end[0] - start[0], 2),
             height: height,
             r: 4
           },
@@ -713,11 +867,17 @@ const updateGanttChart = () => {
         x: [1, 2],
         y: 0
       },
+      // 里程碑以竖直虚线标注在图上
+      markLine: milestoneLines.length > 0 ? {
+        symbol: 'none',
+        silent: false,
+        data: milestoneLines
+      } : undefined,
       data: data
     }]
   }
 
-  ganttChartInstance.setOption(option)
+  ganttChartInstance.setOption(option, true)
 }
 
 // 显示任务对话框
@@ -745,13 +905,21 @@ const saveTask = async () => {
   if (!taskForm.value.name) {
     return ElMessage.warning('请输入任务名称')
   }
+  if (taskForm.value.start_date && taskForm.value.end_date
+    && taskForm.value.end_date < taskForm.value.start_date) {
+    return ElMessage.warning('截止日期不能早于开始日期')
+  }
   taskSaving.value = true
   try {
+    const payload = {
+      ...taskForm.value,
+      assignee_id: taskForm.value.assignee_id ? Number(taskForm.value.assignee_id) : null
+    }
     if (editingTask.value) {
-      await api.put(`/projects/${route.params.id}/tasks/${editingTask.value.id}`, taskForm.value)
+      await api.put(`/projects/${route.params.id}/tasks/${editingTask.value.id}`, payload)
       ElMessage.success('任务更新成功')
     } else {
-      await api.post(`/projects/${route.params.id}/tasks`, taskForm.value)
+      await api.post(`/projects/${route.params.id}/tasks`, payload)
       ElMessage.success('任务创建成功')
     }
     taskDialogVisible.value = false
@@ -850,16 +1018,6 @@ const completeProject = async () => {
   } catch (e) {}
 }
 
-const submitBid = async () => {
-  if (!bidForm.value.price) return ElMessage.warning('请填写报价')
-  bidLoading.value = true
-  try {
-    await api.post('/bids', { project_id: project.value.id, ...bidForm.value })
-    ElMessage.success('投标成功')
-    fetchProject()
-  } catch (e) {} finally { bidLoading.value = false }
-}
-
 const acceptBid = async (bidId) => {
   try {
     await ElMessageBox.confirm('确定接受此投标？将自动生成合同。', '确认')
@@ -913,9 +1071,18 @@ watch(activeTab, (newVal) => {
 })
 
 // 窗口大小变化时重绘图表
-window.addEventListener('resize', () => {
+const handleChartResize = () => {
   if (ganttChartInstance) {
     ganttChartInstance.resize()
+  }
+}
+window.addEventListener('resize', handleChartResize)
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', handleChartResize)
+  if (ganttChartInstance) {
+    ganttChartInstance.dispose()
+    ganttChartInstance = null
   }
 })
 

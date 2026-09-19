@@ -247,6 +247,7 @@ module.exports = {
   isTokenBlacklisted,
   blacklistToken,
   JWT_SECRET,
+  REFRESH_SECRET,
   ACCESS_TOKEN_EXPIRES,
   REFRESH_TOKEN_EXPIRES,
   ACCESS_TOKEN_EXPIRES_SECONDS,

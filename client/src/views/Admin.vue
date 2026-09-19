@@ -4,7 +4,7 @@
       <!-- 平台概览 -->
       <el-tab-pane label="平台概览" name="overview">
         <el-row :gutter="20" style="margin-bottom: 24px">
-          <el-col :span="6" v-for="card in overviewCards" :key="card.label">
+          <el-col :xs="12" :md="6" v-for="card in overviewCards" :key="card.label">
             <el-card shadow="hover" class="stat-card" :body-style="{ padding: '20px' }">
               <div class="stat-card-content">
                 <div class="stat-icon" :style="{ backgroundColor: card.color + '20', color: card.color }">
@@ -19,19 +19,19 @@
           </el-col>
         </el-row>
         <el-row :gutter="16">
-          <el-col :span="8">
+          <el-col :xs="24" :md="8">
             <el-card>
               <template #header><h3>用户角色分布</h3></template>
               <div ref="userRoleChartRef" style="height: 250px"></div>
             </el-card>
           </el-col>
-          <el-col :span="8">
+          <el-col :xs="24" :md="8">
             <el-card>
               <template #header><h3>工程状态分布</h3></template>
               <div ref="projectStatusChartRef" style="height: 250px"></div>
             </el-card>
           </el-col>
-          <el-col :span="8">
+          <el-col :xs="24" :md="8">
             <el-card>
               <template #header><h3>月度收入趋势</h3></template>
               <div ref="revenueChartRef" style="height: 250px"></div>
@@ -139,7 +139,14 @@
             <el-table-column prop="real_name" label="真实姓名" width="120" />
             <el-table-column prop="phone" label="手机号" width="140" />
             <el-table-column prop="email" label="邮箱" width="180" />
-            <el-table-column prop="certification" label="认证信息" min-width="200" show-overflow-tooltip />
+            <el-table-column prop="certification_description" label="认证信息" min-width="200" show-overflow-tooltip>
+              <template #default="{ row }">
+                {{ row.certification_description || '-' }}
+                <el-tag v-if="row.certification_image_count > 0" size="small" type="info" style="margin-left: 4px">
+                  {{ row.certification_image_count }} 张图片
+                </el-tag>
+              </template>
+            </el-table-column>
             <el-table-column prop="created_at" label="申请时间" width="180" />
             <el-table-column label="操作" width="160">
               <template #default="{ row }">
@@ -264,6 +271,11 @@
         </el-card>
       </el-tab-pane>
 
+      <!-- 商用化运营中心 -->
+      <el-tab-pane label="运营中心" name="ops" lazy>
+        <AdminOps />
+      </el-tab-pane>
+
       <!-- 操作日志 -->
       <el-tab-pane label="操作日志" name="logs">
         <el-card>
@@ -315,7 +327,8 @@ import { ref, reactive, computed, onMounted, nextTick, onBeforeUnmount } from 'v
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { User, UserFilled, Briefcase, Folder, Document, Clock, Money } from '@element-plus/icons-vue'
-import * as echarts from 'echarts'
+import echarts from '../utils/echarts'
+import AdminOps from '../components/AdminOps.vue'
 import api from '../api'
 
 const router = useRouter()

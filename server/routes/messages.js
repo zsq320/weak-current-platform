@@ -17,12 +17,18 @@ const router = express.Router();
 router.post('/', authMiddleware, (req, res) => {
   const { to_user_id, title, content } = req.body;
   if (!to_user_id || !content) return res.status(400).json({ error: '收件人和内容不能为空' });
+  if (typeof content !== 'string' || content.length > 2000) {
+    return res.status(400).json({ error: '消息内容不能超过2000个字符' });
+  }
 
   const targetUser = db.prepare('SELECT id FROM users WHERE id = ?').get(Number(to_user_id));
   if (!targetUser) return res.status(404).json({ error: '用户不存在' });
+  if (Number(to_user_id) === req.user.id) {
+    return res.status(400).json({ error: '不能给自己发送消息' });
+  }
 
   db.prepare('INSERT INTO messages (from_user_id, to_user_id, title, content, type) VALUES (?, ?, ?, ?, ?)').run(
-    req.user.id, Number(to_user_id), title || '私信', content, 'system'
+    req.user.id, Number(to_user_id), title ? String(title).slice(0, 100) : '私信', content, 'system'
   );
 
   res.json({ message: '发送成功' });
@@ -30,7 +36,9 @@ router.post('/', authMiddleware, (req, res) => {
 
 // 获取我的消息
 router.get('/', authMiddleware, (req, res) => {
-  const { page = 1, pageSize = 20, unread } = req.query;
+  const { unread } = req.query;
+  let page = Math.max(1, Math.floor(Number(req.query.page) || 1));
+  let pageSize = Math.min(Math.max(1, Math.floor(Number(req.query.pageSize) || 20)), 100);
   let sql = 'SELECT m.*, u.username as from_username FROM messages m LEFT JOIN users u ON m.from_user_id = u.id WHERE m.to_user_id = ?';
   let countSql = 'SELECT COUNT(*) as total FROM messages WHERE to_user_id = ?';
   const params = [req.user.id];
@@ -49,7 +57,7 @@ router.get('/', authMiddleware, (req, res) => {
 
   const unreadCount = db.prepare('SELECT COUNT(*) as count FROM messages WHERE to_user_id = ? AND is_read = 0').get(req.user.id).count;
 
-  res.json({ data: messages, total, unreadCount, page: Number(page), pageSize: Number(pageSize) });
+  res.json({ data: messages, total, unreadCount, page, pageSize });
 });
 
 // 标记已读

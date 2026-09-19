@@ -15,3 +15,9 @@ tunnel-domain.txt
 .claude/
 .vscode/
 server/uploads/
+
+# 备份与日志
+backups/
+logs/
+server.pid
+server-test.log

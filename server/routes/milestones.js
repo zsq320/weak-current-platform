@@ -15,7 +15,7 @@
 
 const express = require('express');
 const db = require('../db');
-const { authMiddleware, optionalAuth } = require('../middleware/auth');
+const { authMiddleware } = require('../middleware/auth');
 const { logAudit } = require('../middleware/audit');
 
 const router = express.Router({ mergeParams: true });
@@ -49,8 +49,8 @@ function checkProjectOwner(req, res, next) {
   next();
 }
 
-// 获取项目所有里程碑
-router.get('/', optionalAuth, checkProjectAccess, (req, res) => {
+// 获取项目所有里程碑（需登录）
+router.get('/', authMiddleware, checkProjectAccess, (req, res) => {
   try {
     const milestones = db.prepare(`
       SELECT * FROM project_milestones
@@ -106,21 +106,31 @@ router.get('/', optionalAuth, checkProjectAccess, (req, res) => {
 // 创建里程碑
 router.post('/', authMiddleware, checkProjectAccess, checkProjectOwner, (req, res) => {
   try {
-    const { name, description, due_date, sort_order } = req.body;
+    const { name, description, due_date, status, sort_order } = req.body;
 
-    if (!name) {
+    if (!name || !String(name).trim()) {
       return res.status(400).json({ error: '里程碑名称不能为空' });
+    }
+    if (String(name).length > 100) {
+      return res.status(400).json({ error: '里程碑名称不能超过100个字符' });
+    }
+    if (due_date && !/^\d{4}-\d{2}-\d{2}/.test(String(due_date))) {
+      return res.status(400).json({ error: '目标日期格式不正确' });
+    }
+    if (status !== undefined && status !== null && !['pending', 'in_progress', 'completed', 'delayed'].includes(status)) {
+      return res.status(400).json({ error: '无效的里程碑状态' });
     }
 
     const result = db.prepare(`
-      INSERT INTO project_milestones (project_id, name, description, due_date, sort_order)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT INTO project_milestones (project_id, name, description, due_date, status, sort_order)
+      VALUES (?, ?, ?, ?, ?, ?)
     `).run(
       req.params.projectId,
-      name,
+      String(name).trim(),
       description || null,
       due_date || null,
-      sort_order || 0
+      status || 'pending',
+      Math.max(0, Math.floor(Number(sort_order) || 0))
     );
 
     const milestone = db.prepare('SELECT * FROM project_milestones WHERE id = ?')
@@ -135,8 +145,8 @@ router.post('/', authMiddleware, checkProjectAccess, checkProjectOwner, (req, re
   }
 });
 
-// 获取单个里程碑详情
-router.get('/:milestoneId', optionalAuth, checkProjectAccess, (req, res) => {
+// 获取单个里程碑详情（需登录）
+router.get('/:milestoneId', authMiddleware, checkProjectAccess, (req, res) => {
   try {
     const milestone = db.prepare('SELECT * FROM project_milestones WHERE id = ? AND project_id = ?')
       .get(req.params.milestoneId, req.params.projectId);
@@ -164,21 +174,35 @@ router.put('/:milestoneId', authMiddleware, checkProjectAccess, checkProjectOwne
 
     const { name, description, due_date, status, sort_order } = req.body;
 
+    // 验证输入
+    if (name !== undefined && (!String(name).trim() || String(name).length > 100)) {
+      return res.status(400).json({ error: '里程碑名称不能为空且不能超过100个字符' });
+    }
+    if (status !== undefined && status !== null && !['pending', 'in_progress', 'completed', 'delayed'].includes(status)) {
+      return res.status(400).json({ error: '无效的里程碑状态' });
+    }
+    if (due_date !== undefined && due_date !== null && due_date !== '' && !/^\d{4}-\d{2}-\d{2}/.test(String(due_date))) {
+      return res.status(400).json({ error: '目标日期格式不正确' });
+    }
+
+    // 目标日期允许清空（传 '' 或 null 时置为 NULL）
+    const finalDue = due_date !== undefined ? (due_date ? String(due_date) : null) : milestone.due_date;
+
     db.prepare(`
       UPDATE project_milestones SET
         name = COALESCE(?, name),
         description = COALESCE(?, description),
-        due_date = COALESCE(?, due_date),
+        due_date = ?,
         status = COALESCE(?, status),
         sort_order = COALESCE(?, sort_order),
         updated_at = CURRENT_TIMESTAMP
       WHERE id = ? AND project_id = ?
     `).run(
-      name || null,
-      description !== undefined ? description : null,
-      due_date || null,
+      name !== undefined && String(name).trim() ? String(name).trim() : null,
+      description !== undefined && description !== null ? description : null,
+      finalDue,
       status || null,
-      sort_order !== undefined ? sort_order : milestone.sort_order,
+      sort_order !== undefined ? Math.max(0, Math.floor(Number(sort_order) || 0)) : milestone.sort_order,
       req.params.milestoneId,
       req.params.projectId
     );
@@ -222,7 +246,7 @@ router.put('/batch/reorder', authMiddleware, checkProjectAccess, checkProjectOwn
   try {
     const { milestones } = req.body; // [{ id, sort_order }]
 
-    if (!Array.isArray(milestones)) {
+    if (!Array.isArray(milestones) || milestones.some(m => !Number.isFinite(Number(m?.id)))) {
       return res.status(400).json({ error: '无效的里程碑列表' });
     }
 
@@ -232,7 +256,7 @@ router.put('/batch/reorder', authMiddleware, checkProjectAccess, checkProjectOwn
 
     const updateMany = db.transaction((items) => {
       for (const item of items) {
-        updateStmt.run(item.sort_order, item.id, req.params.projectId);
+        updateStmt.run(Math.max(0, Math.floor(Number(item.sort_order) || 0)), Number(item.id), req.params.projectId);
       }
     });
 

@@ -156,7 +156,7 @@ const handlePhoneLogin = async () => {
   min-height: calc(100vh - 140px);
 }
 .auth-card {
-  width: 420px;
+  width: min(420px, 92vw);
 }
 .auth-card h2 {
   text-align: center;

@@ -3,7 +3,7 @@
     <!-- 甲方仪表盘 -->
     <template v-if="userStore.isClient">
       <el-row :gutter="20" style="margin-bottom: 24px">
-        <el-col :span="6" v-for="card in clientCards" :key="card.title">
+        <el-col :xs="12" :md="6" v-for="card in clientCards" :key="card.title">
           <el-card shadow="hover" class="stat-card">
             <div class="stat-card-content">
               <div class="stat-icon" :style="{ backgroundColor: card.color + '15', color: card.color }">
@@ -19,13 +19,13 @@
       </el-row>
 
       <el-row :gutter="16">
-        <el-col :span="12">
+        <el-col :xs="24" :md="12">
           <el-card>
             <template #header><h3>工程状态分布</h3></template>
             <div ref="statusChartRef" style="height: 300px"></div>
           </el-card>
         </el-col>
-        <el-col :span="12">
+        <el-col :xs="24" :md="12">
           <el-card>
             <template #header><h3>月度支出趋势</h3></template>
             <div ref="monthlyChartRef" style="height: 300px"></div>
@@ -57,7 +57,7 @@
     <!-- 工程师仪表盘 -->
     <template v-else-if="userStore.isEngineer">
       <el-row :gutter="20" style="margin-bottom: 24px">
-        <el-col :span="5" v-for="card in engineerCards" :key="card.title">
+        <el-col :xs="12" :md="5" v-for="card in engineerCards" :key="card.title">
           <el-card shadow="hover" class="stat-card">
             <div class="stat-card-content">
               <div class="stat-icon" :style="{ backgroundColor: card.color + '15', color: card.color }">
@@ -73,13 +73,13 @@
       </el-row>
 
       <el-row :gutter="16">
-        <el-col :span="12">
+        <el-col :xs="24" :md="12">
           <el-card>
             <template #header><h3>投标状态分布</h3></template>
             <div ref="statusChartRef" style="height: 300px"></div>
           </el-card>
         </el-col>
-        <el-col :span="12">
+        <el-col :xs="24" :md="12">
           <el-card>
             <template #header><h3>月度收入趋势</h3></template>
             <div ref="monthlyChartRef" style="height: 300px"></div>
@@ -131,7 +131,7 @@ import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '../store'
 import { Document, User, Money, Star, Tickets } from '@element-plus/icons-vue'
-import * as echarts from 'echarts'
+import echarts from '../utils/echarts'
 import { ElMessage } from 'element-plus'
 import api from '../api'
 
