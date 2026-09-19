@@ -233,39 +233,43 @@ watch(visible, (val) => {
 }
 
 .score-value {
-  font-size: 16px;
-  font-weight: bold;
-  color: #409eff;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--brand-700);
   min-width: 50px;
   text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 .price {
-  color: #f56c6c;
-  font-weight: bold;
+  color: var(--accent-600);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 
 .total-score {
   text-align: center;
-  padding: 20px;
-  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
-  border-radius: 8px;
+  padding: 18px 20px;
+  background: var(--bg-muted);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
   margin-top: 20px;
 }
 
 .total-score span {
-  font-size: 16px;
-  color: #606266;
+  font-size: 15px;
+  color: var(--ink-500);
 }
 
 .score-number {
-  font-size: 36px !important;
-  font-weight: bold;
+  font-size: 34px !important;
+  font-weight: 700;
   margin: 0 8px;
+  font-variant-numeric: tabular-nums;
 }
 
-.score-number.excellent { color: #67c23a; }
-.score-number.good { color: #409eff; }
-.score-number.average { color: #e6a23c; }
-.score-number.poor { color: #f56c6c; }
+.score-number.excellent { color: var(--success-600); }
+.score-number.good { color: var(--brand-700); }
+.score-number.average { color: var(--warn-600); }
+.score-number.poor { color: var(--danger-600); }
 </style>

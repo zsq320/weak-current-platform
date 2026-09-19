@@ -1,97 +1,104 @@
 <template>
-  <div class="login-page">
-    <div class="brand-pane">
-      <div class="bp-inner">
-        <div class="bp-logo">▦</div>
+  <main class="auth-page auth-page-register"><img class="auth-bg" src="/assets/cas-login-bg.jpg" alt="" />
+    <div class="auth-mask" />
+
+    <section class="auth-card">
+      <div class="auth-card-main">
+        <div class="auth-logo">
+          <span class="logo-mark">▦</span>
+          <span class="logo-text">弱电工程管理平台</span>
+        </div>
         <h1>创建账号</h1>
-        <p class="bp-sub">加入弱电工程管理平台，开始你的第一步</p>
-        <ul class="bp-points">
-          <li>甲方：发布工程、资金托管、在线验收</li>
-          <li>工程师：投标接活、施工留痕、按时结算</li>
-          <li>免费注册，QQ 邮箱验证码即可完成</li>
-        </ul>
+        <p class="auth-subtitle">选择身份，加入工程协同平台</p>
+        <h1>创建账号</h1>
+        <p>选择身份，加入工程协同平台</p>
       </div>
-    </div>
-    <div class="form-pane">
-    <el-card class="auth-card">
-      <h2>注册</h2>
+
       <el-form :model="form" @submit.prevent="handleRegister" label-position="top">
+        <div class="form-group">账号信息</div>
+
         <el-form-item label="用户名" required>
-          <el-input v-model="form.username" placeholder="4-20位字母、数字或下划线" />
+          <el-input v-model="form.username" placeholder="4-20位字母、数字或下划线" :prefix-icon="User" size="large" />
         </el-form-item>
 
-        <el-form-item label="密码" required>
-          <el-input v-model="form.password" type="password" placeholder="至少6位，包含字母和数字" show-password />
-        </el-form-item>
+        <el-row :gutter="14">
+          <el-col :xs="24" :sm="12">
+            <el-form-item label="密码" required>
+              <el-input v-model="form.password" type="password" placeholder="至少6位，含字母和数字" show-password :prefix-icon="Lock" size="large" />
+            </el-form-item>
+          </el-col>
+          <el-col :xs="24" :sm="12">
+            <el-form-item label="确认密码" required>
+              <el-input v-model="form.confirmPassword" type="password" placeholder="再次输入密码" show-password :prefix-icon="Lock" size="large" />
+            </el-form-item>
+          </el-col>
+        </el-row>
 
-        <el-form-item label="确认密码" required>
-          <el-input v-model="form.confirmPassword" type="password" placeholder="再次输入密码" show-password />
-        </el-form-item>
-
-        <el-form-item label="角色" required>
+        <el-form-item label="选择身份" required>
           <div class="role-cards">
             <div class="role-card" :class="{ on: form.role === 'user' }" @click="form.role = 'user'">
-              <div class="rc-icon">🏗️</div>
-              <div class="rc-t">甲方</div>
-              <div class="rc-d">发布工程、托付资金</div>
+              <span class="rc-icon"><el-icon><OfficeBuilding /></el-icon></span>
+              <div class="rc-text">
+                <div class="rc-t">甲方 / 发包方</div>
+                <div class="rc-d">发布工程、在线签约、验收结算</div>
+              </div>
+              <span class="rc-check"><el-icon><Check /></el-icon></span>
             </div>
             <div class="role-card" :class="{ on: form.role === 'engineer' }" @click="form.role = 'engineer'">
-              <div class="rc-icon">🔧</div>
-              <div class="rc-t">工程师</div>
-              <div class="rc-d">投标接活、施工结算</div>
+              <span class="rc-icon"><el-icon><Tools /></el-icon></span>
+              <div class="rc-text">
+                <div class="rc-t">工程师 / 承包方</div>
+                <div class="rc-d">投标接活、施工留痕、按时回款</div>
+              </div>
+              <span class="rc-check"><el-icon><Check /></el-icon></span>
             </div>
           </div>
         </el-form-item>
 
         <el-form-item label="真实姓名">
-          <el-input v-model="form.real_name" placeholder="请输入真实姓名" />
+          <el-input v-model="form.real_name" placeholder="请输入真实姓名" :prefix-icon="Postcard" size="large" />
         </el-form-item>
 
-        <div class="form-section">安全验证</div>
+        <div class="form-group">安全验证</div>
+
         <el-form-item label="手机号" required>
-          <el-row :gutter="10">
-            <el-col :span="16">
-              <el-input v-model="form.phone" placeholder="请输入手机号" />
-            </el-col>
-            <el-col :span="8">
-              <el-button
-                :disabled="phoneCountdown > 0 || !isPhoneValid"
-                :loading="phoneSending"
-                @click="sendPhoneCode"
-                style="width: 100%"
-              >
-                {{ phoneCountdown > 0 ? `${phoneCountdown}s` : '获取验证码' }}
-              </el-button>
-            </el-col>
-          </el-row>
+          <div class="code-row">
+            <el-input v-model="form.phone" placeholder="请输入手机号" :prefix-icon="Iphone" size="large" />
+            <el-button
+              class="code-btn"
+              :disabled="phoneCountdown > 0 || !isPhoneValid"
+              :loading="phoneSending"
+              size="large"
+              @click="sendPhoneCode"
+            >
+              {{ phoneCountdown > 0 ? `${phoneCountdown}s` : '获取验证码' }}
+            </el-button>
+          </div>
         </el-form-item>
 
         <el-form-item v-if="channels.sms" label="手机验证码" required>
-          <el-input v-model="form.phone_code" placeholder="请输入6位验证码" maxlength="6" />
+          <el-input v-model="form.phone_code" placeholder="请输入6位验证码" maxlength="6" :prefix-icon="Key" size="large" />
         </el-form-item>
         <el-alert v-else type="info" :closable="false" style="margin-bottom: 12px"
-          title="短信通道未开通：注册将通过QQ邮箱验证码完成，手机号暂不验证（可后续补充）" />
+          title="短信通道未开通：注册将通过邮箱验证码完成，手机号暂不验证（可后续补充）" />
 
         <el-form-item label="邮箱" required>
-          <el-row :gutter="10">
-            <el-col :span="16">
-              <el-input v-model="form.email" placeholder="请输入邮箱" />
-            </el-col>
-            <el-col :span="8">
-              <el-button
-                :disabled="emailCountdown > 0 || !isEmailValid"
-                :loading="emailSending"
-                @click="sendEmailCode"
-                style="width: 100%"
-              >
-                {{ emailCountdown > 0 ? `${emailCountdown}s` : '获取验证码' }}
-              </el-button>
-            </el-col>
-          </el-row>
+          <div class="code-row">
+            <el-input v-model="form.email" placeholder="请输入邮箱" :prefix-icon="Message" size="large" />
+            <el-button
+              class="code-btn"
+              :disabled="emailCountdown > 0 || !isEmailValid"
+              :loading="emailSending"
+              size="large"
+              @click="sendEmailCode"
+            >
+              {{ emailCountdown > 0 ? `${emailCountdown}s` : '获取验证码' }}
+            </el-button>
+          </div>
         </el-form-item>
 
         <el-form-item label="邮箱验证码" required>
-          <el-input v-model="form.email_code" placeholder="请输入6位验证码" maxlength="6" />
+          <el-input v-model="form.email_code" placeholder="请输入6位验证码" maxlength="6" :prefix-icon="Key" size="large" />
         </el-form-item>
 
         <el-form-item>
@@ -102,16 +109,29 @@
           </el-checkbox>
         </el-form-item>
 
-        <el-button type="primary" native-type="submit" :loading="loading" style="width: 100%">
-          注册
+        <el-button type="primary" native-type="submit" :loading="loading" size="large" class="auth-submit">
+          注 册
         </el-button>
       </el-form>
-      <div class="auth-link">
-        已有账号？<router-link to="/login">立即登录</router-link>
+
+      <div class="auth-foot">
+        <span></span>
+        <span class="foot-sep">已有账号？<router-link to="/login" class="foot-link">立即登录</router-link></span>
       </div>
-    </el-card>
-    </div>
-  </div>
+
+      <footer class="cas-auth-footer">
+        <div class="cas-footer-links">
+          <router-link class="cas-home-link" to="/">返回首页</router-link>
+        </div>
+        <div class="cas-browser-row">
+          <span>推荐使用浏览器</span>
+          <span class="cas-browser"><img src="/assets/browser-edge.png" alt="" /> Edge</span>
+          <span class="cas-browser"><img src="/assets/browser-firefox.png" alt="" /> 火狐</span>
+          <span class="cas-browser"><img src="/assets/browser-chrome.png" alt="" /> 谷歌</span>
+        </div>
+      </footer>
+    </section>
+  </main>
 </template>
 
 <script setup>
@@ -119,6 +139,7 @@ import { reactive, ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '../store'
 import { ElMessage } from 'element-plus'
+import { User, Lock, Iphone, Message, Key, Postcard, OfficeBuilding, Tools, Check, Connection } from '@element-plus/icons-vue'
 import api from '../api'
 
 const router = useRouter()
@@ -240,73 +261,63 @@ const handleRegister = async () => {
 </script>
 
 <style scoped>
-.form-section{
-  font-size:13px;font-weight:600;color:#2563EB;letter-spacing:1px;
-  padding:6px 10px;border-left:3px solid #2563EB;background:#F5F9FF;
-  border-radius:0 6px 6px 0;margin:8px 0 14px;
+/* 分组小标题：克制的灰字 + 上下分隔，不用彩色底条 */
+.form-group{
+  font-size:13px; font-weight:600; color:var(--ink-500); letter-spacing:1px;
+  margin:6px 0 14px; padding-top:16px; border-top:1px solid var(--line-soft);
+  position:relative;
 }
-.role-cards{ display:flex;gap:12px;width:100%; }
+.form-group:first-child{ border-top:none; padding-top:0; margin-top:0; }
+
+/* 身份选择卡：去 emoji，线性图标 + 选中对勾 */
+.role-cards{ display:flex; gap:12px; width:100%; }
 .role-card{
-  flex:1;border:1.5px solid #E2E8F0;border-radius:10px;padding:14px 12px;text-align:center;
-  cursor:pointer;transition:.15s;background:#fff;
+  flex:1; display:flex; align-items:center; gap:12px; text-align:left;
+  border:1.5px solid var(--line); border-radius:var(--r-lg);
+  padding:13px 14px; cursor:pointer; transition:border-color .15s,background .15s;
+  background:#fff; position:relative;
 }
-.role-card:hover{ border-color:#93BBFD; }
-.role-card.on{ border-color:#2563EB;background:#F5F9FF;box-shadow:0 2px 8px rgba(37,99,235,.15); }
-.rc-icon{ font-size:26px;margin-bottom:6px; }
-.rc-t{ font-weight:600;color:#0F172A;font-size:15px; }
-.rc-d{ font-size:12px;color:#64748B;margin-top:2px; }
-@media (max-width:480px){ .role-cards{ flex-direction:column; } }
-/* 全屏左右分栏（与登录页一致） */
-.login-page{ display:flex; min-height:100vh; }
-.brand-pane{
-  width:42%; flex:none; position:sticky; top:0; align-self:flex-start; height:100vh;
-  background:linear-gradient(150deg,#0B2A5B 0%,#1D4ED8 65%,#0891B2 100%);
-  color:#fff; display:flex; align-items:center;
+.role-card:hover{ border-color:var(--brand-300); }
+.role-card.on{ border-color:var(--brand-700); background:var(--brand-50); }
+.rc-icon{
+  width:40px; height:40px; flex:none; border-radius:8px;
+  display:inline-flex; align-items:center; justify-content:center; font-size:20px;
+  background:var(--bg-muted); color:var(--ink-400);
 }
-.bp-inner{ padding:48px 52px; max-width:460px; }
-.bp-logo{
-  width:46px;height:46px;border-radius:12px;background:rgba(255,255,255,.14);
-  border:1px solid rgba(255,255,255,.25);display:flex;align-items:center;justify-content:center;
-  font-size:22px;margin-bottom:22px;
+.role-card.on .rc-icon{ background:var(--brand-100); color:var(--brand-700); }
+.rc-text{ min-width:0; }
+.rc-t{ font-weight:600; color:var(--ink-900); font-size:14px; }
+.rc-d{ font-size:12px; color:var(--ink-500); margin-top:2px; line-height:1.4; }
+.rc-check{
+  position:absolute; top:8px; right:9px; font-size:13px;
+  color:var(--brand-700); opacity:0; transition:opacity .15s;
 }
-.brand-pane h1{ font-size:26px;letter-spacing:1px;margin-bottom:10px; }
-.bp-sub{ color:#C7D8F5;font-size:14px;margin-bottom:26px; }
-.bp-points{ list-style:none; display:flex; flex-direction:column; gap:12px; }
-.bp-points li{ color:#DCE7FB; font-size:13.5px; padding-left:24px; position:relative; }
-.bp-points li::before{ content:"✓"; position:absolute; left:0; color:#7DD3FC; font-weight:700; }
-.form-pane{ flex:1; display:flex; justify-content:center; padding:32px 20px 60px; min-height:100vh; }
-.form-pane .el-card{
-  width:min(560px,100%); border:none; border-radius:14px;
-  box-shadow:0 12px 32px rgba(15,42,67,.14) !important;
+.role-card.on .rc-check{ opacity:1; }
+
+.auth-submit{ width:100%; margin-top:6px; letter-spacing:4px; font-weight:600; }
+.code-row{ display:flex; gap:10px; width:100%; }
+.code-row .el-input{ flex:1; }
+.code-btn{ flex:none; width:128px; padding-left:8px; padding-right:8px; }
+
+.auth-foot{
+  display:flex; align-items:center; justify-content:space-between;
+  margin-top:14px; font-size:13px;
 }
-.form-pane .el-card__body{ padding:30px 34px; }
-@media (max-width:860px){
-  .brand-pane{ display:none; }
-  .form-pane{ padding:20px 12px; }
+.foot-sep{ color:var(--ink-400); }
+.foot-link{ color:var(--brand-700); text-decoration:none; font-weight:500; }
+.foot-link:hover{ color:var(--brand-800); }
+
+.auth-copy{
+  position:relative; z-index:2; margin-top:24px;
+  color:rgba(255,255,255,.55); font-size:12.5px; letter-spacing:.5px; text-align:center;
 }
-.auth-page {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: calc(100vh - 140px);
-  padding: 20px;
+
+@media (max-width:600px){
+  .auth-shell{ padding:30px 12px; }
+  .auth-card{ padding:24px 18px 20px; }
+  .auth-topbar{ left:18px; top:16px; }
+  .role-cards{ flex-direction:column; }
+  .code-btn{ width:108px; }
 }
-.auth-card {
-  width: min(500px, 92vw);
-}
-.auth-card h2 {
-  text-align: center;
-  margin-bottom: 24px;
-  color: #303133;
-}
-.auth-link {
-  text-align: center;
-  margin-top: 16px;
-  font-size: 14px;
-  color: #909399;
-}
-.auth-link a {
-  color: #409eff;
-  text-decoration: none;
-}
+
 </style>

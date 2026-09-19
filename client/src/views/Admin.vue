@@ -2,10 +2,10 @@
   <div class="admin-shell">
     <!-- 左侧深色导航 -->
     <aside class="admin-side">
-      <div class="side-brand"><span class="logo">▦</span> 管理后台</div>
+      <div class="side-brand"><span class="logo"><el-icon><Connection /></el-icon></span> 管理后台</div>
       <div class="grp">运营管理</div>
       <div v-for="m in sideMenus" :key="m.key" class="it" :class="{ on: activeTab === m.key }" @click="activeTab = m.key">
-        <span class="ic">{{ m.icon }}</span>{{ m.label }}
+        <el-icon class="ic"><component :is="m.icon" /></el-icon>{{ m.label }}
       </div>
     </aside>
 
@@ -130,7 +130,7 @@
                     </template>
                   </el-dropdown>
                 </template>
-                <span v-else style="color: #909399; font-size: 12px">管理员</span>
+                <span v-else style="color: var(--ink-400); font-size: 12px">管理员</span>
               </template>
             </el-table-column>
           </el-table>
@@ -210,7 +210,7 @@
             <el-table-column label="操作" width="120" fixed="right">
               <template #default="{ row }">
                 <el-button v-if="row.status !== 'completed' && row.status !== 'cancelled'" type="danger" size="small" @click="forceCancelProject(row.id)">强制取消</el-button>
-                <span v-else style="color: #909399; font-size: 12px">已结束</span>
+                <span v-else style="color: var(--ink-400); font-size: 12px">已结束</span>
               </template>
             </el-table-column>
           </el-table>
@@ -239,7 +239,7 @@
             <el-table-column prop="owner_real_name" label="甲方" width="120" />
             <el-table-column prop="engineer_real_name" label="工程师" width="120" />
             <el-table-column prop="amount" label="合同金额" width="120">
-              <template #default="{ row }"><span style="color: #f56c6c; font-weight: bold">¥{{ row.amount?.toLocaleString() }}</span></template>
+              <template #default="{ row }"><span class="amount">¥{{ row.amount?.toLocaleString() }}</span></template>
             </el-table-column>
             <el-table-column prop="status" label="状态" width="100">
               <template #default="{ row }">
@@ -260,8 +260,8 @@
       <el-tab-pane label="财务概览" name="finance">
         <el-card style="margin-bottom: 16px">
           <div style="text-align: center; padding: 20px">
-            <div style="font-size: 14px; color: #909399">平台总交易额</div>
-            <div style="font-size: 36px; font-weight: bold; color: #f56c6c; margin-top: 8px">¥{{ (financeData.totalAmount || 0).toLocaleString() }}</div>
+            <div style="font-size: 14px; color: var(--ink-500)">平台总交易额</div>
+            <div class="amount" style="font-size: 34px; font-weight: 700; margin-top: 8px">¥{{ (financeData.totalAmount || 0).toLocaleString() }}</div>
           </div>
         </el-card>
         <el-card>
@@ -272,7 +272,7 @@
             <el-table-column prop="owner_name" label="甲方" width="120" />
             <el-table-column prop="engineer_name" label="工程师" width="120" />
             <el-table-column prop="amount" label="交易金额" width="120">
-              <template #default="{ row }"><span style="color: #f56c6c; font-weight: bold">¥{{ row.amount?.toLocaleString() }}</span></template>
+              <template #default="{ row }"><span class="amount">¥{{ row.amount?.toLocaleString() }}</span></template>
             </el-table-column>
             <el-table-column prop="completed_at" label="完成时间" width="180" />
           </el-table>
@@ -336,7 +336,7 @@
       <div style="display: flex; flex-wrap: wrap; gap: 8px">
         <el-image v-for="(img, i) in certViewerImages" :key="i" :src="img"
           :preview-src-list="certViewerImages" :initial-index="i" fit="contain"
-          style="width: 100%; max-height: 300px; border-radius: 6px; border: 1px solid #ebeef5" />
+          style="width: 100%; max-height: 300px; border-radius: var(--r-md); border: 1px solid var(--line)" />
       </div>
       <el-empty v-if="certViewerImages.length === 0" description="无图片" :image-size="60" />
     </el-dialog>
@@ -373,13 +373,13 @@ const revenueChartRef = ref(null)
 let charts = []
 
 const overviewCards = computed(() => [
-  { label: '用户总数', value: adminStats.value.total_users || 0, icon: 'User', color: '#409eff' },
-  { label: '甲方用户', value: adminStats.value.total_clients || 0, icon: 'UserFilled', color: '#67c23a' },
-  { label: '工程师', value: adminStats.value.total_engineers || 0, icon: 'Briefcase', color: '#e6a23c' },
-  { label: '项目总数', value: adminStats.value.total_projects || 0, icon: 'Folder', color: '#909399' },
-  { label: '合同总数', value: adminStats.value.total_contracts || 0, icon: 'Document', color: '#f56c6c' },
-  { label: '待审批', value: adminStats.value.pending_certs || 0, icon: 'Clock', color: '#e6a23c' },
-  { label: '总交易额', value: `¥${(adminStats.value.total_revenue || 0).toLocaleString()}`, icon: 'Money', color: '#f56c6c' }
+  { label: '用户总数', value: adminStats.value.total_users || 0, icon: 'User', color: '#1B5288' },
+  { label: '甲方用户', value: adminStats.value.total_clients || 0, icon: 'UserFilled', color: '#1F9451' },
+  { label: '工程师', value: adminStats.value.total_engineers || 0, icon: 'Briefcase', color: '#3E80BF' },
+  { label: '项目总数', value: adminStats.value.total_projects || 0, icon: 'Folder', color: '#66707F' },
+  { label: '合同总数', value: adminStats.value.total_contracts || 0, icon: 'Document', color: '#EE8C2A' },
+  { label: '待审批', value: adminStats.value.pending_certs || 0, icon: 'Clock', color: '#C9811A' },
+  { label: '总交易额', value: `¥${(adminStats.value.total_revenue || 0).toLocaleString()}`, icon: 'Money', color: '#BD650E' }
 ])
 
 // 用户管理
@@ -452,7 +452,7 @@ const initOverviewCharts = () => {
       tooltip: { trigger: 'axis' },
       xAxis: { type: 'category', data: adminStats.value.monthly_revenue.map(m => m.month) },
       yAxis: { type: 'value' },
-      series: [{ type: 'bar', data: adminStats.value.monthly_revenue.map(m => m.total), itemStyle: { color: '#f56c6c' } }]
+      series: [{ type: 'bar', data: adminStats.value.monthly_revenue.map(m => m.total), itemStyle: { color: '#E07A16' } }]
     })
     charts.push(chart)
   }
@@ -565,14 +565,14 @@ const viewCertImages = (row) => {
 
 // 左侧导航菜单（与 activeTab 联动）
 const sideMenus = [
-  { key: 'overview', label: '平台概览', icon: '📊' },
-  { key: 'users', label: '用户管理', icon: '👥' },
-  { key: 'certs', label: '认证审批', icon: '🪪' },
-  { key: 'projects', label: '工程管理', icon: '📁' },
-  { key: 'contracts', label: '合同管理', icon: '📄' },
-  { key: 'finance', label: '财务概览', icon: '💰' },
-  { key: 'ops', label: '运营中心', icon: '⚙️' },
-  { key: 'logs', label: '操作日志', icon: '📜' }
+  { key: 'overview', label: '平台概览', icon: 'DataAnalysis' },
+  { key: 'users', label: '用户管理', icon: 'User' },
+  { key: 'certs', label: '认证审批', icon: 'Postcard' },
+  { key: 'projects', label: '工程管理', icon: 'Folder' },
+  { key: 'contracts', label: '合同管理', icon: 'Document' },
+  { key: 'finance', label: '财务概览', icon: 'Wallet' },
+  { key: 'ops', label: '运营中心', icon: 'Setting' },
+  { key: 'logs', label: '操作日志', icon: 'DocumentCopy' }
 ]
 
 const handleTabChange = (tab) => {
@@ -599,19 +599,20 @@ onBeforeUnmount(() => {
 <style scoped>
 .admin-shell{ display:flex; gap:16px; align-items:flex-start; }
 .admin-side{
-  width:176px; flex:none; background:#0F2544; border-radius:10px; padding:14px 10px;
+  width:176px; flex:none; background:var(--brand-900); border-radius:var(--r-lg); padding:14px 10px;
   position:sticky; top:74px; max-height:calc(100vh - 90px); overflow-y:auto;
 }
 .side-brand{ color:#fff; font-weight:700; font-size:15px; padding:4px 10px 14px; display:flex; align-items:center; gap:8px; }
-.side-brand .logo{ width:26px; height:26px; border-radius:7px; background:linear-gradient(135deg,#2563EB,#0891B2); display:inline-flex; align-items:center; justify-content:center; font-size:13px; }
-.grp{ color:#5F779B; font-size:11.5px; padding:8px 10px 6px; letter-spacing:1px; }
+.side-brand .logo{ width:26px; height:26px; border-radius:var(--r-sm); background:var(--brand-600); display:inline-flex; align-items:center; justify-content:center; }
+.side-brand .logo .el-icon{ font-size:16px; color:#fff; }
+.grp{ color:var(--brand-300); font-size:11.5px; padding:8px 10px 6px; letter-spacing:1px; }
 .it{
-  padding:9px 10px; border-radius:6px; margin-bottom:2px; color:#A9BEDD; font-size:13.5px;
+  padding:9px 10px; border-radius:var(--r-md); margin-bottom:2px; color:var(--brand-200); font-size:13.5px;
   display:flex; gap:8px; align-items:center; cursor:pointer; transition:.15s;
 }
-.it:hover{ background:rgba(255,255,255,.06); color:#fff; }
-.it.on{ background:#2563EB; color:#fff; font-weight:600; }
-.ic{ font-size:15px; }
+.it:hover{ background:rgba(255,255,255,.07); color:#fff; }
+.it.on{ background:var(--brand-600); color:#fff; font-weight:600; }
+.ic{ font-size:16px; }
 .admin-main{ flex:1; min-width:0; }
 .admin-main :deep(.admin-tabs > .el-tabs__header){ display:none; }
 @media (max-width:900px){
@@ -637,13 +638,13 @@ onBeforeUnmount(() => {
 }
 
 .stat-card {
-  border-radius: 12px;
-  transition: all 0.3s ease;
+  border-radius: var(--r-lg);
+  transition: border-color .15s ease, box-shadow .15s ease;
 }
 
 .stat-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
+  border-color: var(--brand-200);
+  box-shadow: var(--sh-2);
 }
 
 .stat-card-content {
@@ -653,9 +654,9 @@ onBeforeUnmount(() => {
 }
 
 .stat-icon {
-  width: 56px;
-  height: 56px;
-  border-radius: 12px;
+  width: 52px;
+  height: 52px;
+  border-radius: var(--r-md);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -668,15 +669,16 @@ onBeforeUnmount(() => {
 }
 
 .stat-value {
-  font-size: 24px;
+  font-size: 23px;
   font-weight: 700;
-  color: #303133;
+  color: var(--ink-900);
   line-height: 1.2;
+  font-variant-numeric: tabular-nums;
 }
 
 .stat-label {
   font-size: 13px;
-  color: #909399;
+  color: var(--ink-500);
   margin-top: 4px;
 }
 
@@ -684,19 +686,20 @@ h3 {
   margin: 0;
   font-size: 16px;
   font-weight: 600;
+  color: var(--ink-900);
 }
 
 :deep(.el-card) {
-  border-radius: 12px;
-  border: none;
+  border-radius: var(--r-lg);
+  border: 1px solid var(--line);
 }
 
 :deep(.el-table) {
-  border-radius: 8px;
+  border-radius: var(--r-md);
 }
 
 :deep(.el-table th) {
-  background-color: #f5f7fa !important;
+  background-color: var(--bg-muted) !important;
   font-weight: 600;
 }
 </style>

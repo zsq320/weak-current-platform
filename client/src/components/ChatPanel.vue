@@ -79,16 +79,16 @@ onBeforeUnmount(() => clearInterval(pollTimer))
 </script>
 
 <style scoped>
-.header-row { display: flex; justify-content: space-between; align-items: center; }
-.chat-box { height: 340px; overflow-y: auto; background: #f8f9fb; border-radius: 8px; padding: 12px; }
+.header-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.chat-box { height: 340px; overflow-y: auto; background: var(--bg-muted); border:1px solid var(--line-soft); border-radius: var(--r-md); padding: 12px; }
 .chat-msg { margin-bottom: 10px; }
 .chat-msg.mine { text-align: right; }
-.chat-meta { font-size: 11px; color: #909399; margin-bottom: 2px; }
+.chat-meta { font-size: 11px; color: var(--ink-400); margin-bottom: 2px; }
 .chat-bubble {
-  display: inline-block; background: #fff; border: 1px solid #ebeef5;
-  border-radius: 8px; padding: 6px 10px; max-width: 75%; text-align: left;
-  font-size: 13px; white-space: pre-wrap; word-break: break-word;
+  display: inline-block; background: #fff; border: 1px solid var(--line);
+  border-radius: var(--r-md); padding: 7px 11px; max-width: 75%; text-align: left;
+  font-size: 13px; white-space: pre-wrap; word-break: break-word; color: var(--ink-700);
 }
-.chat-msg.mine .chat-bubble { background: #d9ecff; border-color: #d9ecff; }
+.chat-msg.mine .chat-bubble { background: var(--brand-700); border-color: var(--brand-700); color: #fff; }
 .chat-input { display: flex; gap: 8px; margin-top: 10px; align-items: flex-end; }
 </style>

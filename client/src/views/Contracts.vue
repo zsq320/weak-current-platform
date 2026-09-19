@@ -17,7 +17,7 @@
         </el-table-column>
         <el-table-column prop="amount" label="合同金额" width="105">
           <template #default="{ row }">
-            <span style="color: #f56c6c; font-weight: bold">¥{{ row.amount?.toLocaleString() }}</span>
+            <span class="amount">¥{{ row.amount?.toLocaleString() }}</span>
           </template>
         </el-table-column>
         <el-table-column label="签署" width="90">
@@ -381,10 +381,10 @@ onMounted(fetchContracts)
 </script>
 
 <style scoped>
-.header-row { display: flex; justify-content: space-between; align-items: center; }
+.header-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
 .contract-content {
-  white-space: pre-wrap; background: #f8f9fb; border: 1px solid #ebeef5;
-  border-radius: 8px; padding: 14px; max-height: 300px; overflow-y: auto;
-  font-size: 13px; line-height: 1.8; color: #303133;
+  white-space: pre-wrap; background: var(--bg-muted); border: 1px solid var(--line);
+  border-radius: var(--r-md); padding: 14px; max-height: 300px; overflow-y: auto;
+  font-size: 13px; line-height: 1.8; color: var(--ink-700);
 }
 </style>

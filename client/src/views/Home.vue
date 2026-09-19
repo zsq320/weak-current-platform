@@ -1,20 +1,25 @@
 <template>
   <div class="home">
     <div class="hero">
+      <div class="hero-grid"></div>
       <div class="hero-inner">
+        <div class="hero-badge">弱电工程 · 全流程协同平台</div>
         <h1>{{ heroTitle }}</h1>
-        <p>连接工程需求方与专业工程师，让弱电工程更高效</p>
+        <p>连接工程需求方与专业工程师，投标签约 · 施工留痕 · 验收结算一体化</p>
+        <div class="hero-tags">
+          <span v-for="c in categories.slice(0, 6)" :key="c" class="hero-tag">{{ c }}</span>
+        </div>
         <div class="hero-actions">
-          <el-button v-if="!isLoggedIn" type="primary" size="large" @click="router.push('/login')">登录 / 注册</el-button>
-          <el-button v-else-if="isAdmin" size="large" @click="router.push('/admin')">进入管理后台</el-button>
-          <el-button v-else-if="isEngineer" type="primary" size="large" @click="scrollToFilters">浏览工程，去投标</el-button>
-          <el-button v-else type="primary" size="large" @click="router.push('/publish')">发布工程</el-button>
+          <el-button v-if="!isLoggedIn" size="large" class="btn-light" @click="router.push('/login')">登录 / 注册</el-button>
+          <el-button v-else-if="isAdmin" size="large" class="btn-outline" @click="router.push('/admin')">进入管理后台</el-button>
+          <el-button v-else-if="isEngineer" size="large" class="btn-light" @click="scrollToFilters">浏览工程，去投标</el-button>
+          <el-button v-else size="large" class="btn-light" @click="router.push('/publish')">发布工程</el-button>
         </div>
       </div>
     </div>
 
     <div class="filters" ref="filterRef">
-      <el-input v-model="filters.keyword" placeholder="搜索工程..." clearable @keyup.enter="fetchProjects" class="search-input">
+      <el-input v-model="filters.keyword" placeholder="搜索工程标题或描述" clearable @keyup.enter="fetchProjects" class="search-input">
         <template #prefix><el-icon><Search /></el-icon></template>
       </el-input>
       <el-select v-model="filters.category" placeholder="工程分类" clearable @change="fetchProjects">
@@ -34,7 +39,7 @@
         :project="p"
         :require-login="!isLoggedIn"
       />
-      <el-empty v-if="projects.length === 0" description="暂无工程" />
+      <el-empty v-if="projects.length === 0" description="暂无符合条件的工程" />
     </div>
 
     <el-pagination
@@ -44,12 +49,12 @@
       :page-size="pageSize"
       v-model:current-page="page"
       @current-change="fetchProjects"
-      style="justify-content: center; margin-top: 20px"
+      class="pager"
     />
 
     <footer class="home-footer">
       <router-link to="/agreement/user_agreement">用户服务协议</router-link>
-      <span>·</span>
+      <span class="dot">·</span>
       <router-link to="/agreement/privacy">隐私政策</router-link>
     </footer>
   </div>
@@ -71,7 +76,7 @@ const isLoggedIn = computed(() => userStore.isLoggedIn)
 const isAdmin = computed(() => userStore.isAdmin)
 const isEngineer = computed(() => userStore.user?.role === 'engineer')
 const heroTitle = computed(() => {
-  if (!isLoggedIn.value) return '弱电工程管理平台'
+  if (!isLoggedIn.value) return '让弱电工程，每一步都可控可溯'
   if (isAdmin.value) return '平台运营管理'
   if (isEngineer.value) return '发现适合你的弱电工程'
   return '把工程交给专业的人'
@@ -102,23 +107,62 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* ============ 深色蓝图 Hero ============ */
 .hero{
-  background:linear-gradient(135deg,#F5F9FF 0%,#F0FDFA 100%);
-  border:1px solid #D7E4FC;border-radius:14px;padding:38px 32px;margin-bottom:22px;text-align:center;
+  position:relative; overflow:hidden;
+  background:var(--brand-900);
+  background-image:linear-gradient(160deg,#123A60 0%,#0E2C4C 55%,#0C2743 100%);
+  border-radius:var(--r-lg);padding:46px 36px 42px;margin-bottom:20px;
 }
-.hero h1{ font-size:26px;font-weight:700;color:#0F172A;margin-bottom:8px; }
-.hero p{ font-size:14px;color:#64748B;margin-bottom:20px; }
+.hero-grid{
+  position:absolute; inset:0; pointer-events:none;
+  background-image:
+    linear-gradient(rgba(255,255,255,.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.05) 1px, transparent 1px);
+  background-size:40px 40px;
+  mask-image:linear-gradient(180deg,#000 30%,transparent 90%);
+  -webkit-mask-image:linear-gradient(180deg,#000 30%,transparent 90%);
+}
+.hero-inner{ position:relative; text-align:left; max-width:760px; }
+.hero-badge{
+  display:inline-block; font-size:12.5px; letter-spacing:1px; color:#BFD2E8;
+  border:1px solid rgba(255,255,255,.22); border-radius:20px; padding:3px 14px; margin-bottom:16px;
+}
+.hero h1{ font-size:29px;font-weight:700;color:#fff;margin-bottom:10px;letter-spacing:.5px; }
+.hero p{ font-size:14.5px;color:rgba(255,255,255,.72);margin-bottom:18px; }
+.hero-tags{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:24px; }
+.hero-tag{
+  font-size:12.5px; color:rgba(255,255,255,.82);
+  border:1px solid rgba(255,255,255,.18); border-radius:var(--r-sm); padding:2px 11px;
+  background:rgba(255,255,255,.05);
+}
 .hero-actions{ margin-top:4px; }
-.filters{ display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap;align-items:center; }
+.btn-light{ background:#fff; color:var(--brand-800); border-color:#fff; font-weight:600; }
+.btn-light:hover{ background:#EAF1F8; color:var(--brand-800); border-color:#EAF1F8; }
+.btn-outline{ background:transparent; color:#fff; border:1px solid rgba(255,255,255,.5); }
+.btn-outline:hover{ background:rgba(255,255,255,.1); color:#fff; border-color:#fff; }
+
+/* ============ 筛选条（白卡） ============ */
+.filters{
+  display:flex;gap:12px;margin-bottom:18px;flex-wrap:wrap;align-items:center;
+  background:#fff;border:1px solid var(--line);border-radius:var(--r-lg);
+  padding:13px 16px;box-shadow:var(--sh-1);
+}
 .project-list{ min-height:200px; }
-:deep(.el-input__wrapper),
-:deep(.el-select__wrapper){ border-radius:6px; }
-.search-input{ width:300px; }
-.filters :deep(.el-select){ width:150px; }
+.search-input{ width:320px; }
+.filters :deep(.el-select){ width:160px; }
+.pager{ justify-content:center; margin-top:24px; }
+
+.home-footer{ text-align:center;margin-top:30px;padding-bottom:10px;font-size:12.5px;color:var(--ink-400); }
+.home-footer a{ color:var(--ink-500); text-decoration:none; }
+.home-footer a:hover{ color:var(--brand-700); }
+.home-footer .dot{ margin:0 8px; }
+
 @media (max-width:768px){
-  .hero{ padding:26px 16px;border-radius:12px;margin-bottom:16px; }
+  .hero{ padding:30px 20px 28px;border-radius:var(--r-lg);margin-bottom:14px; }
   .hero h1{ font-size:22px; }
-  .hero p{ font-size:13px;margin-bottom:16px; }
+  .hero p{ font-size:13px;margin-bottom:14px; }
+  .hero-tags{ margin-bottom:18px; }
   .search-input{ width:100%; }
   .filters{ gap:10px;margin-bottom:14px; }
   .filters :deep(.el-select){ width:calc(50% - 5px); }

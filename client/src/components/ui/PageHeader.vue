@@ -23,9 +23,9 @@ defineProps({ title: String, breadcrumb: String, description: String })
 
 <style scoped>
 .page-header{ display:flex;justify-content:space-between;align-items:flex-end;gap:16px;margin-bottom:16px;flex-wrap:wrap; }
-.bc{ font-size:12.5px;color:#94A3B8;margin-bottom:4px; }
+.bc{ font-size:12.5px;color:var(--ink-400);margin-bottom:4px; }
 .title-row{ display:flex;align-items:center;gap:10px;flex-wrap:wrap; }
-.title{ font-size:18px;font-weight:700;color:#0F172A;line-height:1.3; }
-.desc{ font-size:12.5px;color:#64748B;margin-top:3px; }
+.title{ font-size:19px;font-weight:700;color:var(--ink-900);line-height:1.3; }
+.desc{ font-size:12.5px;color:var(--ink-500);margin-top:3px; }
 .actions{ display:flex;align-items:center;gap:8px;flex-wrap:wrap; }
 </style>

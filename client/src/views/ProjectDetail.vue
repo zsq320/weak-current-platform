@@ -2,7 +2,7 @@
   <div class="project-detail" v-if="project">
     <div class="detail-header">
       <div class="dh-left">
-        <el-button link @click="router.back()">← 返回</el-button>
+        <el-button link @click="router.back()"><el-icon style="margin-right: 2px"><ArrowLeft /></el-icon>返回</el-button>
         <h2 class="dh-title">{{ project.title }} <StatusTag kind="project" :status="project.status" /></h2>
         <div class="dh-meta">
           {{ project.location || '未填写地点' }} · 预算 <AmountText :value="project.budget" /> · 截止 {{ project.deadline || '未设置' }} · {{ bids.length || project.bid_count || 0 }} 份投标
@@ -37,7 +37,7 @@
                 <el-descriptions-item label="工程地点">{{ project.location || '未填写' }}</el-descriptions-item>
                 <el-descriptions-item label="截止日期">{{ project.deadline || '未设置' }}</el-descriptions-item>
                 <el-descriptions-item label="预算金额">
-                  <span style="color: #f56c6c; font-weight: bold; font-size: 18px">¥{{ project.budget?.toLocaleString() || '面议' }}</span>
+                  <span class="amount" style="font-size: 18px">¥{{ project.budget?.toLocaleString() || '面议' }}</span>
                 </el-descriptions-item>
                 <el-descriptions-item label="发布时间">{{ project.created_at }}</el-descriptions-item>
               </el-descriptions>
@@ -76,7 +76,7 @@
                 </el-table-column>
                 <el-table-column label="报价" width="130" sortable="custom" prop="price">
                   <template #default="{ row }">
-                    <span style="color: #f56c6c; font-weight: bold">¥{{ row.price?.toLocaleString() }}</span>
+                    <span class="amount">¥{{ row.price?.toLocaleString() }}</span>
                   </template>
                 </el-table-column>
                 <el-table-column label="工期" width="80">
@@ -95,7 +95,7 @@
                     <el-tag v-if="row.total_score > 0" :type="row.total_score >= 80 ? 'success' : row.total_score >= 60 ? '' : 'warning'">
                       {{ row.total_score }}
                     </el-tag>
-                    <span v-else style="color: #909399">未评</span>
+                    <span v-else style="color: var(--ink-400)">未评</span>
                   </template>
                 </el-table-column>
                 <el-table-column prop="status" label="状态" width="100">
@@ -128,16 +128,16 @@
             <!-- 进度统计卡片 -->
             <el-row :gutter="14" style="margin-bottom: 14px">
               <el-col :xs="12" :sm="12" :md="6">
-                <StatCard icon="📊" icon-bg="#EFF5FF" icon-color="#2563EB" :value="progressStats.overall_progress + '%'" label="总体进度" />
+                <StatCard icon="DataAnalysis" icon-bg="var(--brand-50)" icon-color="var(--brand-700)" :value="progressStats.overall_progress + '%'" label="总体进度" />
               </el-col>
               <el-col :xs="12" :sm="12" :md="6">
-                <StatCard icon="📋" icon-bg="#F0F9FF" icon-color="#0EA5E9" :value="taskStats.total" label="任务总数" />
+                <StatCard icon="Tickets" icon-bg="var(--bg-muted)" icon-color="var(--ink-500)" :value="taskStats.total" label="任务总数" />
               </el-col>
               <el-col :xs="12" :sm="12" :md="6">
-                <StatCard icon="✅" icon-bg="#F0FDF4" icon-color="#16A34A" :value="taskStats.completed" label="已完成" />
+                <StatCard icon="CircleCheck" icon-bg="var(--success-50)" icon-color="var(--success-600)" :value="taskStats.completed" label="已完成" />
               </el-col>
               <el-col :xs="12" :sm="12" :md="6">
-                <StatCard icon="⏰" icon-bg="#FEF2F2" icon-color="#DC2626" :value="taskStats.overdue" label="已逾期" />
+                <StatCard icon="WarningFilled" icon-bg="var(--danger-50)" icon-color="var(--danger-600)" :value="taskStats.overdue" label="已逾期" />
               </el-col>
             </el-row>
 
@@ -186,7 +186,7 @@
                         <el-progress
                           :percentage="row.progress"
                           :stroke-width="8"
-                          :color="row.progress === 100 ? '#67c23a' : row.end_date && new Date(row.end_date) < new Date() ? '#f56c6c' : '#409eff'"
+                          :color="row.progress === 100 ? '#1F9451' : row.end_date && new Date(row.end_date) < new Date() ? '#CF4A4A' : '#1B5288'"
                         />
                       </template>
                     </el-table-column>
@@ -279,7 +279,7 @@
         <!-- 投标按钮 -->
         <el-card v-if="canBid">
           <template #header><span>参与投标</span></template>
-          <p style="color: #909399; margin-bottom: 16px">
+          <p style="color: var(--ink-400); margin-bottom: 16px">
             您可以参与此工程的投标，请填写详细的报价、工期和资质信息。
           </p>
           <el-button type="primary" @click="showBidForm = true" style="width: 100%" size="large">
@@ -473,7 +473,7 @@ import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '../store'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Refresh, Plus, Edit } from '@element-plus/icons-vue'
+import { Refresh, Plus, Edit, ArrowLeft } from '@element-plus/icons-vue'
 import BidForm from '../components/BidForm.vue'
 import BidScoreDialog from '../components/BidScoreDialog.vue'
 import ConstructionPanel from '../components/ConstructionPanel.vue'
@@ -750,7 +750,7 @@ const updateGanttChart = () => {
         text: '暂无任务，请先创建任务',
         left: 'center',
         top: 'middle',
-        textStyle: { color: '#909399', fontSize: 14, fontWeight: 'normal' }
+        textStyle: { color: '#98A1AE', fontSize: 14, fontWeight: 'normal' }
       }
     })
     return
@@ -775,11 +775,11 @@ const updateGanttChart = () => {
   const data = tasks.value.map((task, index) => {
     const start = task.start_date || new Date(minTime).toISOString().split('T')[0]
     const end = task.end_date || new Date(maxTime).toISOString().split('T')[0]
-    let color = '#409eff'
+    let color = '#1B5288'
 
-    if (task.status === 'completed') color = '#67c23a'
-    else if (isOverdue(task)) color = '#f56c6c'
-    else if (task.status === 'in_progress') color = '#e6a23c'
+    if (task.status === 'completed') color = '#1F9451'
+    else if (isOverdue(task)) color = '#CF4A4A'
+    else if (task.status === 'in_progress') color = '#C9811A'
 
     return {
       name: task.name,
@@ -792,11 +792,11 @@ const updateGanttChart = () => {
     .filter(m => m.due_date)
     .map(m => ({
       xAxis: m.due_date,
-      lineStyle: { color: m.status === 'completed' ? '#67c23a' : '#e6a23c', type: 'dashed', width: 2 },
+      lineStyle: { color: m.status === 'completed' ? '#1F9451' : '#C9811A', type: 'dashed', width: 2 },
       label: {
         formatter: `◆ ${m.name}`,
         position: 'insideEndTop',
-        color: m.status === 'completed' ? '#67c23a' : '#e6a23c',
+        color: m.status === 'completed' ? '#1F9451' : '#C9811A',
         fontSize: 11
       },
       emphasis: { disabled: false }
@@ -1096,33 +1096,33 @@ onMounted(async () => {
 
 <style scoped>
 .detail-header{
-  background:#fff;border:1px solid #E2E8F0;border-radius:10px;padding:16px 20px;margin-bottom:16px;
+  background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);padding:16px 20px;margin-bottom:16px;
   display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;
-  box-shadow:0 1px 2px rgba(15,42,67,.06);
+  box-shadow:var(--sh-1);
 }
 .dh-left{ min-width:0; }
-.dh-title{ font-size:18px;font-weight:700;color:#0F172A;display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 4px; }
-.dh-meta{ font-size:12.5px;color:#64748B; }
+.dh-title{ font-size:18px;font-weight:700;color:var(--ink-900);display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 4px; }
+.dh-meta{ font-size:12.5px;color:var(--ink-500); }
 .dh-actions{ display:flex;gap:8px;flex-wrap:wrap; }
 .detail-tabs .el-tabs__header{ background:transparent; border:none; margin-bottom:14px; }
 .detail-tabs .el-tabs__item{ font-size:14.5px; }
-.page-title { font-size: 18px; font-weight: bold; }
+.page-title { font-size: 18px; font-weight: 700; }
 .card-header-row { display: flex; justify-content: space-between; align-items: center; }
 .description { margin-top: 20px; }
-.description h4 { margin-bottom: 8px; color: #303133; }
-.description p { color: #606266; line-height: 1.8; white-space: pre-wrap; }
+.description h4 { margin-bottom: 8px; color: var(--ink-900); }
+.description p { color: var(--ink-700); line-height: 1.8; white-space: pre-wrap; }
 
 .stat-card {
   text-align: center;
 }
 .stat-value {
   font-size: 28px;
-  font-weight: bold;
-  color: #303133;
+  font-weight: 700;
+  color: var(--ink-900);
 }
 .stat-label {
   font-size: 12px;
-  color: #909399;
+  color: var(--ink-500);
   margin: 8px 0;
 }
 
@@ -1140,11 +1140,11 @@ onMounted(async () => {
   align-items: center;
 }
 .milestone-name {
-  font-weight: bold;
-  color: #303133;
+  font-weight: 700;
+  color: var(--ink-900);
 }
 .milestone-desc {
-  color: #909399;
+  color: var(--ink-400);
   font-size: 12px;
   margin: 4px 0 0;
 }
@@ -1155,7 +1155,7 @@ onMounted(async () => {
 }
 
 .text-danger {
-  color: #f56c6c;
-  font-weight: bold;
+  color: var(--danger-600);
+  font-weight: 700;
 }
 </style>

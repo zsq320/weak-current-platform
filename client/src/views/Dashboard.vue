@@ -147,18 +147,18 @@ const statusType = { pending: 'info', bidding: 'warning', in_progress: '', compl
 const statusName = { pending: '待发布', bidding: '招标中', in_progress: '进行中', completed: '已完成', cancelled: '已取消' }
 
 const clientCards = computed(() => [
-  { title: '发布工程', value: clientData.value.totalProjects || 0, icon: Document, color: '#409eff' },
-  { title: '待处理投标', value: clientData.value.pendingBids || 0, icon: Tickets, color: '#e6a23c' },
-  { title: '履行中合同', value: clientData.value.activeContracts || 0, icon: Money, color: '#67c23a' },
-  { title: '总支出', value: `¥${(clientData.value.totalSpent || 0).toLocaleString()}`, icon: Money, color: '#f56c6c' }
+  { title: '发布工程', value: clientData.value.totalProjects || 0, icon: Document, color: '#1B5288' },
+  { title: '待处理投标', value: clientData.value.pendingBids || 0, icon: Tickets, color: '#C9811A' },
+  { title: '履行中合同', value: clientData.value.activeContracts || 0, icon: Money, color: '#1F9451' },
+  { title: '总支出', value: `¥${(clientData.value.totalSpent || 0).toLocaleString()}`, icon: Money, color: '#E07A16' }
 ])
 
 const engineerCards = computed(() => [
-  { title: '投标总数', value: engineerData.value.totalBids || 0, icon: Document, color: '#409eff' },
-  { title: '中标数量', value: engineerData.value.completedProjects || 0, icon: User, color: '#67c23a' },
-  { title: '履行中合同', value: engineerData.value.activeContracts || 0, icon: Money, color: '#e6a23c' },
-  { title: '总收入', value: `¥${(engineerData.value.totalEarned || 0).toLocaleString()}`, icon: Money, color: '#f56c6c' },
-  { title: '平均评分', value: (engineerData.value.avgRating || 0).toFixed(1), icon: Star, color: '#909399' }
+  { title: '投标总数', value: engineerData.value.totalBids || 0, icon: Document, color: '#1B5288' },
+  { title: '中标数量', value: engineerData.value.completedProjects || 0, icon: User, color: '#1F9451' },
+  { title: '履行中合同', value: engineerData.value.activeContracts || 0, icon: Money, color: '#C9811A' },
+  { title: '总收入', value: `¥${(engineerData.value.totalEarned || 0).toLocaleString()}`, icon: Money, color: '#E07A16' },
+  { title: '平均评分', value: (engineerData.value.avgRating || 0).toFixed(1), icon: Star, color: '#66707F' }
 ])
 
 const initClientCharts = () => {
@@ -179,7 +179,7 @@ const initClientCharts = () => {
       tooltip: { trigger: 'axis' },
       xAxis: { type: 'category', data: clientData.value.monthlySpending.map(m => m.month) },
       yAxis: { type: 'value' },
-      series: [{ type: 'bar', data: clientData.value.monthlySpending.map(m => m.total), itemStyle: { color: '#409eff' } }]
+      series: [{ type: 'bar', data: clientData.value.monthlySpending.map(m => m.total), itemStyle: { color: '#1B5288' } }]
     })
     charts.push(chart)
   }
@@ -204,7 +204,7 @@ const initEngineerCharts = () => {
       tooltip: { trigger: 'axis' },
       xAxis: { type: 'category', data: engineerData.value.monthlyEarnings.map(m => m.month) },
       yAxis: { type: 'value' },
-      series: [{ type: 'bar', data: engineerData.value.monthlyEarnings.map(m => m.total), itemStyle: { color: '#67c23a' } }]
+      series: [{ type: 'bar', data: engineerData.value.monthlyEarnings.map(m => m.total), itemStyle: { color: '#1F9451' } }]
     })
     charts.push(chart)
   }
@@ -238,32 +238,26 @@ onBeforeUnmount(() => {
 
 h3 {
   margin: 0;
-  font-size: 16px;
+  font-size: 15.5px;
   font-weight: 600;
+  color: var(--ink-900);
 }
 
 .stat-card {
-  border-radius: 16px;
-  border: none;
-  transition: all 0.3s ease;
-}
-
-.stat-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
+  border-radius: var(--r-lg);
 }
 
 .stat-card-content {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 8px 0;
+  gap: 14px;
+  padding: 6px 0;
 }
 
 .stat-icon {
-  width: 56px;
-  height: 56px;
-  border-radius: 14px;
+  width: 50px;
+  height: 50px;
+  border-radius: 9px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -277,35 +271,16 @@ h3 {
 }
 
 .stat-value {
-  font-size: 26px;
+  font-size: 24px;
   font-weight: 700;
-  color: #303133;
+  color: var(--ink-900);
   line-height: 1.2;
+  font-variant-numeric: tabular-nums;
 }
 
 .stat-title {
   font-size: 13px;
-  color: #909399;
-  margin-top: 4px;
-}
-
-:deep(.el-card) {
-  border-radius: 16px;
-  border: none;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-}
-
-:deep(.el-table) {
-  border-radius: 12px;
-}
-
-:deep(.el-table th) {
-  background-color: #f5f7fa !important;
-  font-weight: 600;
-}
-
-:deep(.el-card__header) {
-  padding: 18px 20px;
-  border-bottom: 1px solid #f0f0f0;
+  color: var(--ink-500);
+  margin-top: 3px;
 }
 </style>

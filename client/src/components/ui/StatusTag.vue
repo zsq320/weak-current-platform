@@ -42,12 +42,12 @@ const resolvedText = computed(() => resolved.value[1])
 
 <style scoped>
 .status-tag{
-  display:inline-flex;align-items:center;padding:1px 10px;border-radius:4px;
+  display:inline-flex;align-items:center;padding:1px 9px;border-radius:var(--r-sm);
   font-size:12px;line-height:20px;font-weight:500;white-space:nowrap;
 }
-.is-success{ background:#F0FDF4;color:#16A34A;border:1px solid #BBF0CE; }
-.is-warn{ background:#FFFBEB;color:#D97706;border:1px solid #FDE9B8; }
-.is-danger{ background:#FEF2F2;color:#DC2626;border:1px solid #FBC8C8; }
-.is-info{ background:#EFF5FF;color:#2563EB;border:1px solid #CFE0FF; }
-.is-muted{ background:#F1F5F9;color:#64748B;border:1px solid #E2E8F0; }
+.is-success{ background:var(--success-50);color:var(--success-600);border:1px solid var(--success-100); }
+.is-warn{ background:var(--warn-50);color:var(--warn-600);border:1px solid var(--warn-100); }
+.is-danger{ background:var(--danger-50);color:var(--danger-600);border:1px solid var(--danger-100); }
+.is-info{ background:var(--brand-50);color:var(--brand-700);border:1px solid var(--brand-200); }
+.is-muted{ background:var(--bg-muted);color:var(--ink-500);border:1px solid var(--line); }
 </style>

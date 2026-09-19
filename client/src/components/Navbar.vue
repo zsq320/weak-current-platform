@@ -1,7 +1,7 @@
 <template>
   <el-menu mode="horizontal" :router="true" class="navbar" :default-active="route.path">
     <div class="nav-brand" @click="router.push('/')">
-      <span class="brand-logo"><el-icon><Monitor /></el-icon></span>
+      <span class="brand-logo"><el-icon><Connection /></el-icon></span>
       <span class="brand-name">弱电工程管理平台</span>
     </div>
 
@@ -69,7 +69,7 @@
 import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '../store'
-import { Monitor, Bell, UserFilled } from '@element-plus/icons-vue'
+import { Connection, Bell, UserFilled } from '@element-plus/icons-vue'
 import api from '../api'
 
 const route = useRoute()
@@ -138,13 +138,13 @@ const handleCommand = (cmd) => {
 </script>
 
 <style scoped>
-.navbar { height: 58px; display: flex; align-items: center; padding: 0 22px; background: #fff; box-shadow: 0 1px 2px rgba(15,42,67,.06); border-bottom: 1px solid #E2E8F0; position: sticky; top: 0; z-index: 100; }
-.nav-brand { display: flex; align-items: center; gap: 9px; font-size: 16.5px; font-weight: 700; color: #0F172A; cursor: pointer; margin-right: 24px; white-space: nowrap; }
-.brand-logo { width: 30px; height: 30px; border-radius: 8px; background: linear-gradient(135deg, #2563EB, #0891B2); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 15px; }
+.navbar { height: 58px; display: flex; align-items: center; padding: 0 22px; background: #fff; box-shadow: var(--sh-1); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 100; }
+.nav-brand { display: flex; align-items: center; gap: 9px; font-size: 16.5px; font-weight: 700; color: var(--ink-900); cursor: pointer; margin-right: 24px; white-space: nowrap; }
+.brand-logo { width: 30px; height: 30px; border-radius: 7px; background: var(--brand-700); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 15px; }
 .brand-name { letter-spacing: .5px; }
 .nav-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
 .user-info { display: flex; align-items: center; gap: 8px; cursor: pointer; }
-.username { font-size: 14px; }
+.username { font-size: 14px; color: var(--ink-700); }
 .msg-badge { margin-right: 8px; }
 
 /* 移动端适配：导航可横向滑动，隐藏次要信息 */
@@ -162,7 +162,7 @@ const handleCommand = (cmd) => {
 
 <style>
 /* Navbar 菜单项统一分段样式（全局，作用于 el-menu-item） */
-.navbar .el-menu-item { height: 58px; line-height: 58px; border-bottom: 2px solid transparent; color: #334155; }
-.navbar .el-menu-item:hover { background: #F5F9FF; color: #2563EB; }
-.navbar .el-menu-item.is-active { color: #1D4ED8; border-bottom-color: #2563EB; background: transparent; font-weight: 600; }
+.navbar .el-menu-item { height: 58px; line-height: 58px; border-bottom: 2px solid transparent; color: var(--ink-700); }
+.navbar .el-menu-item:hover { background: var(--brand-50); color: var(--brand-700); }
+.navbar .el-menu-item.is-active { color: var(--brand-700); border-bottom-color: var(--brand-700); background: transparent; font-weight: 600; }
 </style>

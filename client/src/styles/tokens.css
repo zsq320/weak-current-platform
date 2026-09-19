@@ -1,68 +1,97 @@
 /* ============================================================
    弱电工程管理平台 · 设计令牌 Design Tokens
+   设计语言：工程蓝图 × 安全橙（工业 / 克制 / 精密 / 可信）
    在 main.js 中于 element-plus/dist/index.css 之后引入
-   全站颜色/字号/间距/圆角/阴影统一从这里引用
+   全站颜色 / 字号 / 间距 / 圆角 / 阴影统一从这里引用
    ============================================================ */
 
 :root{
-  /* ---- 品牌色 ---- */
-  --brand-900:#0B2A5B; --brand-700:#1D4ED8; --brand-600:#2563EB;
-  --brand-500:#3B82F6; --brand-300:#93BBFD; --brand-100:#EFF5FF; --brand-50:#F5F9FF;
-  --cyan-600:#0891B2;
+  /* ---- 品牌主色：工程蓝（沉稳深靛蓝，禁用亮紫蓝与青色渐变） ---- */
+  --brand-900:#0E2C4C;   /* 深色背景 / 登录蓝图底色 */
+  --brand-800:#17436E;
+  --brand-700:#1B5288;   /* 主按钮 / 链接 / 选中态 */
+  --brand-600:#2A68A8;
+  --brand-500:#3E80BF;
+  --brand-300:#8DA9C6;
+  --brand-200:#BDCCDF;
+  --brand-100:#E3ECF6;
+  --brand-50:#F2F6FB;
 
-  /* ---- 语义色 ---- */
-  --success-600:#16A34A; --success-50:#F0FDF4;
-  --warn-600:#D97706;    --warn-50:#FFFBEB;
-  --danger-600:#DC2626;  --danger-50:#FEF2F2;
-  --info-600:#0EA5E9;
+  /* ---- 强调色：安全橙（安全帽橙，仅用于金额 / 关键 CTA / 行业点缀） ---- */
+  --accent-700:#BD650E;
+  --accent-600:#E07A16;  /* 金额、重点数字 */
+  --accent-500:#EE8C2A;
+  --accent-100:#FAE2C6;
+  --accent-50:#FDF3E8;
 
-  /* ---- 中性色 ---- */
-  --ink-900:#0F172A; --ink-700:#334155; --ink-500:#64748B; --ink-400:#94A3B8;
-  --line:#E2E8F0; --line-soft:#EEF1F5;
-  --bg:#F4F6FA; --card:#FFFFFF; --bg-muted:#F8FAFC;
+  /* ---- 语义色（降低饱和度，稳重不刺眼） ---- */
+  --success-600:#1F9451;  --success-100:#C9E8D7;  --success-50:#EAF6EF;
+  --warn-600:#C9811A;     --warn-100:#F0DCB4;     --warn-50:#FAF1DE;
+  --danger-600:#CF4A4A;   --danger-100:#F0C4C4;   --danger-50:#FAECEC;
+  --info-600:#2A68A8;     --info-50:#F2F6FB;
 
-  /* ---- 形态 ---- */
-  --r-sm:6px; --r-md:10px; --r-lg:14px;
-  --sh-1:0 1px 2px rgba(15,42,67,.06);
-  --sh-2:0 4px 14px rgba(15,42,67,.08);
-  --sh-3:0 12px 32px rgba(15,42,67,.14);
+  /* ---- 中性色（去蓝调的纯石板灰） ---- */
+  --ink-900:#1B2430;  /* 一级标题 */
+  --ink-700:#44505F;  /* 正文 */
+  --ink-500:#66707F;  /* 次要文字 */
+  --ink-400:#98A1AE;  /* 占位 / 弱化 */
+  --line:#E3E6EA;     /* 标准边框 */
+  --line-soft:#EEF0F3;
+  --bg:#F3F5F7;       /* 页面底色（中性灰） */
+  --bg-muted:#F7F8FA; /* 表头 / 浅底 */
+  --card:#FFFFFF;
+
+  /* ---- 形态：工业感小圆角 ---- */
+  --r-sm:4px;    /* 标签 / 小元素 */
+  --r-md:6px;    /* 输入框 / 按钮 */
+  --r-lg:8px;    /* 卡片 */
+  --r-xl:10px;   /* 弹窗 */
+
+  /* ---- 阴影：极克制，主要靠 1px 边框分隔 ---- */
+  --sh-1:0 1px 2px rgba(17,24,39,.04);
+  --sh-2:0 4px 12px rgba(17,24,39,.07);
+  --sh-3:0 16px 40px rgba(10,24,40,.18);
+
   --mono:"SF Mono",Consolas,Menlo,monospace;
 }
 
 /* ============================================================
-   Element Plus 主题覆盖（自动派生浅色阶，全站组件即刻换肤）
+   Element Plus 主题覆盖
    ============================================================ */
 :root{
-  --el-color-primary:#2563EB;
-  --el-color-primary-light-3:#6A96F2;
-  --el-color-primary-light-5:#92B5F7;
-  --el-color-primary-light-7:#BFD5FB;
-  --el-color-primary-light-8:#D7E4FC;
-  --el-color-primary-light-9:#EFF5FF;
-  --el-color-primary-dark-2:#1D4ED8;
-  --el-color-success:#16A34A;
-  --el-color-success-light-9:#F0FDF4;
-  --el-color-warning:#D97706;
-  --el-color-warning-light-9:#FFFBEB;
-  --el-color-danger:#DC2626;
-  --el-color-danger-light-9:#FEF2F2;
-  --el-color-error:#DC2626;
-  --el-color-info:#0EA5E9;
-  --el-color-info-light-9:#F0F9FF;
+  --el-color-primary:#1B5288;
+  --el-color-primary-light-3:#5E86B0;
+  --el-color-primary-light-5:#8DA9C6;
+  --el-color-primary-light-7:#BDCCDF;
+  --el-color-primary-light-8:#D5DFEA;
+  --el-color-primary-light-9:#EBF0F6;
+  --el-color-primary-dark-2:#15416D;
 
-  --el-text-color-primary:#0F172A;
-  --el-text-color-regular:#334155;
-  --el-text-color-secondary:#64748B;
-  --el-text-color-placeholder:#94A3B8;
-  --el-border-color:#E2E8F0;
-  --el-border-color-light:#E2E8F0;
-  --el-border-color-lighter:#EEF1F5;
+  --el-color-success:#1F9451;
+  --el-color-success-light-9:#EAF6EF;
+  --el-color-warning:#C9811A;
+  --el-color-warning-light-9:#FAF1DE;
+  --el-color-danger:#CF4A4A;
+  --el-color-danger-light-9:#FAECEC;
+  --el-color-error:#CF4A4A;
+  --el-color-info:#66707F;
+  --el-color-info-light-9:#F4F6F8;
+
+  --el-text-color-primary:#1B2430;
+  --el-text-color-regular:#44505F;
+  --el-text-color-secondary:#66707F;
+  --el-text-color-placeholder:#98A1AE;
+  --el-border-color:#E3E6EA;
+  --el-border-color-light:#E3E6EA;
+  --el-border-color-lighter:#EEF0F3;
+  --el-border-color-extra-light:#EEF0F3;
   --el-fill-color-blank:#FFFFFF;
-  --el-bg-color-page:#F4F6FA;
+  --el-fill-color-light:#F7F8FA;
+  --el-bg-color-page:#F3F5F7;
   --el-border-radius-base:6px;
   --el-font-size-base:14px;
-  --el-box-shadow:0 4px 14px rgba(15,42,67,.08);
-  --el-box-shadow-light:0 1px 2px rgba(15,42,67,.06);
+  --el-box-shadow:0 4px 12px rgba(17,24,39,.07);
+  --el-box-shadow-light:0 1px 2px rgba(17,24,39,.04);
 }
 
 /* ============================================================
@@ -72,28 +101,58 @@ body{
   background:var(--bg);
   color:var(--ink-700);
   font-family:"PingFang SC","Microsoft YaHei","Segoe UI",sans-serif;
-  line-height:1.65;
+  line-height:1.6;
+  -webkit-font-smoothing:antialiased;
 }
 
-/* 表格统一：表头浅灰底、行 hover 品牌浅蓝、行高收紧 */
-.el-table th.el-table__cell{ background:var(--bg-muted); color:var(--ink-500); font-weight:600; }
+h1,h2,h3,h4{ color:var(--ink-900); }
+
+/* ---- 按钮：去除 AI 味彩色光晕，改为纯色实底、hover 加深 ---- */
+.el-button{ border-radius:var(--r-md); font-weight:500; }
+.el-button--primary{ box-shadow:none !important; background:var(--brand-700); border-color:var(--brand-700); }
+.el-button--primary:hover,
+.el-button--primary:focus{ background:var(--brand-800); border-color:var(--brand-800); box-shadow:none !important; }
+.el-button--primary.is-plain{ color:var(--brand-700); background:var(--brand-50); border-color:var(--brand-200); }
+.el-button--primary.is-plain:hover{ background:var(--brand-700); color:#fff; border-color:var(--brand-700); }
+.el-button.is-text,.el-button.is-link{ box-shadow:none !important; }
+
+/* ---- 输入控件：小圆角、聚焦用工程蓝 ---- */
+.el-input__wrapper,.el-textarea__inner,.el-select__wrapper{ border-radius:var(--r-md) !important; }
+.el-input__wrapper.is-focus,
+.el-textarea__inner:focus{ box-shadow:0 0 0 1px var(--brand-700) inset !important; }
+
+/* ---- 卡片：白底、细边、极轻阴影、8px 圆角 ---- */
+.el-card{ border-radius:var(--r-lg); border:1px solid var(--line); box-shadow:var(--sh-1) !important; }
+.el-card__header{ border-bottom:1px solid var(--line-soft); padding:14px 18px; }
+.el-card.is-hover-shadow:hover,.el-card.shadow-hover:hover{ box-shadow:var(--sh-2) !important; transform:none; }
+
+/* ---- 表格：表头中性浅灰、行 hover 浅蓝、行高收紧 ---- */
+.el-table th.el-table__cell{ background:var(--bg-muted) !important; color:var(--ink-500); font-weight:600; }
 .el-table td.el-table__cell{ padding:9px 0; }
-.el-table .el-table__row:hover > td.el-table__cell{ background:var(--brand-100) !important; }
+.el-table .el-table__row:hover > td.el-table__cell{ background:var(--brand-50) !important; }
+.el-table{ --el-table-border-color:var(--line-soft); }
 
-/* 卡片统一：白底、细边、轻阴影、10px 圆角 */
-.el-card{ border-radius:var(--r-md); border:1px solid var(--line); box-shadow:var(--sh-1) !important; }
-.el-card__header{ border-bottom:1px solid var(--line-soft); }
+/* ---- 弹窗 / 气泡：小圆角、克制阴影 ---- */
+.el-dialog{ border-radius:var(--r-xl); box-shadow:var(--sh-3); overflow:hidden; }
+.el-message-box{ border-radius:var(--r-xl); }
+.el-dialog__header{ margin-right:0; padding:16px 20px; border-bottom:1px solid var(--line-soft); }
+.el-dialog__body{ padding:20px; }
+.el-dialog__footer{ padding:12px 20px 16px; border-top:1px solid var(--line-soft); }
 
-/* 弹窗统一 14px 圆角与深阴影 */
-.el-dialog{ border-radius:var(--r-lg); box-shadow:var(--sh-3); }
-.el-message-box{ border-radius:var(--r-lg); }
+/* ---- 标签页：激活下划线用工程蓝 ---- */
+.el-tabs__item.is-active{ color:var(--brand-700); }
+.el-tabs__active-bar{ background-color:var(--brand-700); }
+.el-tabs__item:hover{ color:var(--brand-700); }
 
-/* 按钮微调：主按钮带品牌色投影 */
-.el-button--primary{ box-shadow:0 2px 6px rgba(37,99,235,.28); }
-.el-button--primary:hover{ background:var(--brand-700); }
+/* ---- 标签 Tag：降饱和、小圆角 ---- */
+.el-tag{ border-radius:var(--r-sm); font-weight:500; }
 
-/* 金额/编号等宽数字工具类 */
-.num, .amount{ font-variant-numeric:tabular-nums; }
+/* ---- 分页 ---- */
+.el-pagination .el-pager li.is-active{ background:var(--brand-700); }
 
-/* 页面容器背景 */
+/* ---- 数字 / 金额工具类 ---- */
+.num{ font-variant-numeric:tabular-nums; }
+.amount{ color:var(--accent-600); font-weight:700; font-variant-numeric:tabular-nums; }
+
+/* ---- 滚动条（深色蓝图背景专用，登录注册页用） ---- */
 #app{ min-height:100vh; }

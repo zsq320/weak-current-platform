@@ -28,8 +28,8 @@ const isAuthPage = computed(() => ['/login', '/register'].includes(route.path))
 
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: 'PingFang SC', 'Microsoft YaHei', 'Segoe UI', sans-serif; background: #F4F6FA; color: #334155; }
-.main-container { max-width: 1200px; margin: 0 auto; padding: 20px; min-height: calc(100vh - 60px); }
+body { font-family: 'PingFang SC', 'Microsoft YaHei', 'Segoe UI', sans-serif; background: var(--bg); color: var(--ink-700); }
+.main-container { max-width: 1200px; margin: 0 auto; padding: 22px 20px; min-height: calc(100vh - 60px); }
 .main-container.full-bleed { max-width: none; padding: 0; margin: 0; min-height: 100vh; }
 
 /* ============ 移动端全局适配 ============ */

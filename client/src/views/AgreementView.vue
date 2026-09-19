@@ -48,6 +48,6 @@ onMounted(fetchDoc)
 </script>
 
 <style scoped>
-.legal-content { line-height: 1.9; color: #303133; }
-.legal-content pre { white-space: pre-wrap; font-family: inherit; }
+.legal-content { line-height: 1.9; color: var(--ink-700); max-width: 860px; }
+.legal-content pre { white-space: pre-wrap; font-family: inherit; font-size: 14px; }
 </style>

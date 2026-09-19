@@ -200,7 +200,7 @@
 
         <!-- 危险区：账号注销 -->
         <el-card style="margin-top: 16px" class="danger-card">
-          <template #header><h3 style="margin:0; color: #f56c6c">账号注销</h3></template>
+          <template #header><h3 style="margin:0; color: var(--danger-600)">账号注销</h3></template>
           <el-alert type="warning" :closable="false" style="margin-bottom: 10px"
             title="注销后个人信息将被匿名化且不可恢复；财务与合同记录依法留存。需先结清余额、提现与进行中的合同。" />
           <el-button type="danger" plain @click="deleteAccountVisible = true">申请注销账号</el-button>
@@ -566,15 +566,11 @@ onMounted(async () => {
   padding: 0;
 }
 
-.profile-card {
-  border-radius: 16px;
-  border: none;
-}
-
 h3 {
   margin: 0;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
+  color: var(--ink-900);
 }
 
 .user-card {
@@ -592,31 +588,33 @@ h3 {
   position: absolute;
   bottom: 0;
   right: 0;
-  width: 36px;
-  height: 36px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #409eff, #67c23a);
+  background: var(--brand-700);
+  border: 2px solid #fff;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: transform 0.2s;
-  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.4);
+  transition: background .15s;
+  box-shadow: var(--sh-2);
 }
 
 .avatar-uploader:hover {
-  transform: scale(1.1);
+  background: var(--brand-800);
 }
 
 .avatar-uploader-icon {
-  color: white;
-  font-size: 18px;
+  color: #fff;
+  font-size: 16px;
 }
 
 .user-card h3 {
-  margin: 16px 0 12px;
-  font-size: 20px;
+  margin: 14px 0 12px;
+  font-size: 19px;
   font-weight: 600;
+  color: var(--ink-900);
 }
 
 .tags-row {
@@ -624,19 +622,21 @@ h3 {
   flex-wrap: wrap;
   gap: 8px;
   justify-content: center;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
 }
 
 .balance {
-  margin-top: 16px;
-  color: #909399;
-  font-size: 14px;
+  margin-top: 14px;
+  color: var(--ink-500);
+  font-size: 13px;
 }
 
 .balance span {
-  color: #f56c6c;
+  color: var(--accent-600);
   font-weight: 700;
-  font-size: 24px;
+  font-size: 22px;
+  margin-left: 4px;
+  font-variant-numeric: tabular-nums;
 }
 
 .quick-amounts {
@@ -650,14 +650,14 @@ h3 {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 16px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid #ebeef5;
+  margin-bottom: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line-soft);
 }
 
 .review-item {
-  padding: 16px 0;
-  border-bottom: 1px solid #f0f0f0;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line-soft);
 }
 
 .review-item:last-child {
@@ -668,36 +668,24 @@ h3 {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
+  font-weight: 500;
+  color: var(--ink-900);
 }
 
 .review-item p {
-  color: #606266;
+  color: var(--ink-700);
   font-size: 14px;
-  margin: 8px 0;
+  margin: 6px 0;
   line-height: 1.6;
 }
 
 .review-time {
   font-size: 12px;
-  color: #c0c4cc;
-}
-
-:deep(.el-card) {
-  border-radius: 16px;
-  border: none;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  color: var(--ink-400);
 }
 
 :deep(.el-form-item__label) {
   font-weight: 500;
-}
-
-:deep(.el-input__wrapper) {
-  border-radius: 8px;
-}
-
-:deep(.el-button) {
-  border-radius: 8px;
 }
 </style>

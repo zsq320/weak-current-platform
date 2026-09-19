@@ -25,16 +25,16 @@
       <!-- 统计卡片 -->
       <el-row :gutter="14" style="margin-bottom: 18px">
         <el-col :xs="12" :sm="12" :md="6">
-          <StatCard icon="📮" icon-bg="#F0F9FF" icon-color="#0EA5E9" :value="stats.total" label="总投标数" />
+          <StatCard icon="Tickets" icon-bg="var(--brand-50)" icon-color="var(--brand-700)" :value="stats.total" label="总投标数" />
         </el-col>
         <el-col :xs="12" :sm="12" :md="6">
-          <StatCard icon="⏳" icon-bg="#FFFBEB" icon-color="#D97706" :value="stats.pending" label="待定中" />
+          <StatCard icon="Timer" icon-bg="var(--warn-50)" icon-color="var(--warn-600)" :value="stats.pending" label="待定中" />
         </el-col>
         <el-col :xs="12" :sm="12" :md="6">
-          <StatCard icon="🎉" icon-bg="#F0FDF4" icon-color="#16A34A" :value="stats.accepted" label="已中标" />
+          <StatCard icon="CircleCheck" icon-bg="var(--success-50)" icon-color="var(--success-600)" :value="stats.accepted" label="已中标" />
         </el-col>
         <el-col :xs="12" :sm="12" :md="6">
-          <StatCard icon="🚫" icon-bg="#FEF2F2" icon-color="#DC2626" :value="stats.rejected" label="未中标" />
+          <StatCard icon="CircleClose" icon-bg="var(--danger-50)" icon-color="var(--danger-600)" :value="stats.rejected" label="未中标" />
         </el-col>
       </el-row>
 
@@ -45,14 +45,14 @@
             <el-link type="primary" @click="router.push(`/project/${row.project_id}`)">
               {{ row.project_title }}
             </el-link>
-            <div style="font-size: 12px; color: #909399">{{ row.category }}</div>
+            <div style="font-size: 12px; color: var(--ink-400)">{{ row.category }}</div>
           </template>
         </el-table-column>
 
         <el-table-column label="我的报价" width="130" sortable>
           <template #default="{ row }">
             <span class="price">¥{{ row.price?.toLocaleString() }}</span>
-            <div v-if="row.project_budget" style="font-size: 11px; color: #909399">
+            <div v-if="row.project_budget" style="font-size: 11px; color: var(--ink-400)">
               预算: ¥{{ row.project_budget?.toLocaleString() }}
             </div>
           </template>
@@ -63,7 +63,7 @@
             <span v-if="row.duration">
               {{ row.duration }}{{ row.duration_unit === 'days' ? '天' : row.duration_unit === 'weeks' ? '周' : '月' }}
             </span>
-            <span v-else style="color: #909399">-</span>
+            <span v-else style="color: var(--ink-400)">-</span>
           </template>
         </el-table-column>
 
@@ -80,8 +80,8 @@
             <el-tag :type="bidStatusMap[row.status]?.type">
               {{ bidStatusMap[row.status]?.text }}
             </el-tag>
-            <el-icon v-if="row.status === 'accepted'" color="#67c23a" style="margin-left: 4px"><CircleCheck /></el-icon>
-            <el-icon v-else-if="row.status === 'rejected'" color="#f56c6c" style="margin-left: 4px"><CircleClose /></el-icon>
+            <el-icon v-if="row.status === 'accepted'" color="var(--success-600)" style="margin-left: 4px"><CircleCheck /></el-icon>
+            <el-icon v-else-if="row.status === 'rejected'" color="var(--danger-600)" style="margin-left: 4px"><CircleClose /></el-icon>
           </template>
         </el-table-column>
 
@@ -198,14 +198,12 @@ onMounted(fetchBids)
 </script>
 
 <style scoped>
-.my-bids {
-  padding: 20px;
-}
-
 .header-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .header-row h2 {
@@ -217,25 +215,10 @@ onMounted(fetchBids)
   align-items: center;
 }
 
-.stat-card {
-  text-align: center;
-}
-
-.stat-value {
-  font-size: 28px;
-  font-weight: bold;
-  color: #303133;
-}
-
-.stat-label {
-  font-size: 12px;
-  color: #909399;
-  margin-top: 4px;
-}
-
 .price {
-  color: #f56c6c;
-  font-weight: bold;
+  color: var(--accent-600);
+  font-weight: 700;
   font-size: 16px;
+  font-variant-numeric: tabular-nums;
 }
 </style>

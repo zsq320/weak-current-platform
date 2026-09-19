@@ -8,7 +8,7 @@
           <template #default="{ row }">{{ row.real_name || row.username }}</template>
         </el-table-column>
         <el-table-column prop="amount" label="金额" width="110">
-          <template #default="{ row }">¥{{ row.amount?.toLocaleString() }}</template>
+          <template #default="{ row }"><span class="amount">¥{{ row.amount?.toLocaleString() }}</span></template>
         </el-table-column>
         <el-table-column prop="bank_info" label="收款账户" min-width="200" show-overflow-tooltip />
         <el-table-column prop="created_at" label="申请时间" width="170" />
@@ -66,7 +66,7 @@
         <el-table-column prop="title" label="抬头" min-width="150" show-overflow-tooltip />
         <el-table-column prop="tax_no" label="税号" width="140" />
         <el-table-column prop="amount" label="金额" width="100">
-          <template #default="{ row }">¥{{ row.amount?.toLocaleString() }}</template>
+          <template #default="{ row }"><span class="amount">¥{{ row.amount?.toLocaleString() }}</span></template>
         </el-table-column>
         <el-table-column prop="invoice_type" label="类型" width="70">
           <template #default="{ row }">{{ row.invoice_type === 'special' ? '专票' : '普票' }}</template>
@@ -178,7 +178,7 @@
             <template #default="{ row }">{{ { commission: '平台服务费', retention: '质保金留存', withdraw: '提现打款' }[row.type] || row.type }}</template>
           </el-table-column>
           <el-table-column prop="total" label="累计金额" width="140">
-            <template #default="{ row }">¥{{ row.total?.toLocaleString() }}</template>
+            <template #default="{ row }"><span class="amount">¥{{ row.total?.toLocaleString() }}</span></template>
           </el-table-column>
           <el-table-column prop="count" label="笔数" width="90" />
         </el-table>

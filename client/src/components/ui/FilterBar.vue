@@ -2,8 +2,8 @@
   <div class="filter-bar">
     <div class="filters"><slot /></div>
     <div class="ops">
-      <el-button size="small" @click="$emit('reset')">重置</el-button>
-      <el-button type="primary" size="small" @click="$emit('search')">查询</el-button>
+      <el-button size="default" @click="$emit('reset')">重置</el-button>
+      <el-button type="primary" size="default" @click="$emit('search')">查询</el-button>
     </div>
   </div>
 </template>
@@ -16,8 +16,8 @@ defineEmits(['search', 'reset'])
 <style scoped>
 .filter-bar{
   display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;
-  background:#fff;border:1px solid #E2E8F0;border-radius:10px;padding:12px 16px;margin-bottom:14px;
-  box-shadow:0 1px 2px rgba(15,42,67,.06);
+  background:#fff;border:1px solid var(--line);border-radius:var(--r-lg);padding:12px 16px;margin-bottom:14px;
+  box-shadow:var(--sh-1);
 }
 .filters{ display:flex;gap:10px;flex-wrap:wrap;align-items:center;flex:1;min-width:0; }
 .ops{ display:flex;gap:8px;flex:none; }

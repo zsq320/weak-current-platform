@@ -4,11 +4,11 @@
       <!-- 余额卡 -->
       <el-col :xs="24" :md="8">
         <el-card class="balance-card">
-          <div class="stat-value">¥{{ (wallet.balance || 0).toLocaleString() }}</div>
-          <div class="stat-label">账户余额</div>
-          <el-space style="margin-top: 12px">
-            <el-button type="primary" @click="depositDialog = true">充值</el-button>
-            <el-button v-if="userStore.user?.role === 'engineer'" type="success" @click="openWithdraw">提现</el-button>
+          <div class="bc-label">账户余额（元）</div>
+          <div class="bc-value">¥{{ (wallet.balance || 0).toLocaleString() }}</div>
+          <el-space style="margin-top: 16px">
+            <el-button class="bc-btn light" @click="depositDialog = true">充值</el-button>
+            <el-button v-if="userStore.user?.role === 'engineer'" class="bc-btn ghost" @click="openWithdraw">提现</el-button>
           </el-space>
         </el-card>
       </el-col>
@@ -20,7 +20,7 @@
           <div v-for="r in retentions" :key="r.id" class="retention-item">
             <div>{{ r.title }}</div>
             <div class="retention-meta">
-              <span style="color: #e6a23c; font-weight: bold">¥{{ r.retention_amount?.toLocaleString() }}</span>
+              <span style="color: var(--warn-600); font-weight: 700">¥{{ r.retention_amount?.toLocaleString() }}</span>
               <span>{{ r.retention_released_at ? '已释放' : `预计 ${String(r.release_due || '').slice(0, 10)} 释放` }}</span>
             </div>
           </div>
@@ -65,7 +65,7 @@
         </el-table-column>
         <el-table-column prop="amount" label="金额" width="120">
           <template #default="{ row }">
-            <span :style="{ color: row.amount > 0 ? '#67c23a' : '#f56c6c', fontWeight: 'bold' }">
+            <span :style="{ color: row.amount > 0 ? 'var(--success-600)' : 'var(--danger-600)', fontWeight: '700' }">
               {{ row.amount > 0 ? '+' : '' }}{{ row.amount?.toLocaleString() }}
             </span>
           </template>
@@ -262,10 +262,25 @@ onMounted(fetchWallet)
 </script>
 
 <style scoped>
-.balance-card { background: linear-gradient(135deg, #409eff, #67c23a); color: #fff; border: none; }
-.balance-card .stat-value { font-size: 32px; font-weight: bold; }
-.balance-card .stat-label { margin-top: 4px; opacity: 0.9; }
+/* 余额卡：深色工程蓝图质感 */
+.balance-card{
+  border:none !important;
+  background-color:var(--brand-900) !important;
+  background-image:
+    linear-gradient(rgba(255,255,255,.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.05) 1px, transparent 1px) !important;
+  background-size:26px 26px !important;
+}
+.balance-card :deep(.el-card__body){ background:transparent; }
+.bc-label{ font-size:13px; color:rgba(255,255,255,.66); }
+.bc-value{ font-size:32px; font-weight:700; color:#fff; margin-top:6px; font-variant-numeric:tabular-nums; letter-spacing:.5px; }
+.bc-btn.light{ background:#fff; color:var(--brand-800); border-color:#fff; font-weight:600; }
+.bc-btn.light:hover{ background:#EAF1F8; color:var(--brand-800); border-color:#EAF1F8; }
+.bc-btn.ghost{ background:transparent; color:#fff; border-color:rgba(255,255,255,.5); }
+.bc-btn.ghost:hover{ background:rgba(255,255,255,.12); color:#fff; border-color:#fff; }
+
 .header-row { display: flex; justify-content: space-between; align-items: center; }
-.retention-item { padding: 6px 0; border-bottom: 1px dashed #ebeef5; }
-.retention-meta { display: flex; justify-content: space-between; font-size: 12px; color: #909399; margin-top: 2px; }
+.retention-item { padding: 8px 0; border-bottom: 1px dashed var(--line); }
+.retention-item:last-child{ border-bottom:none; }
+.retention-meta { display: flex; justify-content: space-between; font-size: 12px; color: var(--ink-400); margin-top: 2px; gap:10px; }
 </style>

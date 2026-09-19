@@ -88,5 +88,5 @@ onMounted(fetchMessages)
 <style scoped>
 .header-row { display: flex; justify-content: space-between; align-items: center; }
 h2 { margin: 0; display: flex; align-items: center; gap: 8px; }
-.unread-dot { width: 8px; height: 8px; border-radius: 50%; background: #f56c6c; }
+.unread-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--danger-600); }
 </style>

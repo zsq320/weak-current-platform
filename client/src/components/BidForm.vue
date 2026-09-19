@@ -7,7 +7,7 @@
     @close="handleClose"
   >
     <!-- 步骤条 -->
-    <el-steps :active="currentStep" finish-status="success" align-center style="margin-bottom: 30px">
+    <el-steps :active="currentStep" finish-status="primary" align-center style="margin-bottom: 30px">
       <el-step title="基本信息" description="报价与工期" />
       <el-step title="资质证明" description="上传资质材料" />
       <el-step title="方案说明" description="详细方案描述" />
@@ -366,19 +366,21 @@ watch(visible, (val) => {
 
 .form-tip {
   font-size: 12px;
-  color: #909399;
+  color: var(--ink-400);
   margin-top: 8px;
 }
 
 .form-tip .highlight {
-  color: #f56c6c;
-  font-weight: bold;
+  color: var(--accent-600);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 
 .price-highlight {
-  font-size: 24px;
-  font-weight: bold;
-  color: #f56c6c;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--accent-600);
+  font-variant-numeric: tabular-nums;
 }
 
 .qualification-upload {

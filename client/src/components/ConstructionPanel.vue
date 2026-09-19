@@ -24,7 +24,9 @@
     <!-- 现场打卡 -->
     <el-tab-pane label="现场打卡" name="checkins">
       <div v-if="canWork" style="margin-bottom: 10px">
-        <el-button type="primary" :loading="checkinLoading" @click="doCheckin">📍 现场定位打卡</el-button>
+        <el-button type="primary" :loading="checkinLoading" @click="doCheckin">
+          <el-icon style="margin-right: 4px"><Aim /></el-icon>现场定位打卡
+        </el-button>
       </div>
       <el-table :data="checkins" size="small" max-height="360">
         <el-table-column prop="checkin_at" label="时间" width="170" />
@@ -162,7 +164,7 @@
           :type="{ pending: 'warning', approved: 'success', rework: 'danger' }[a.status]"
           :timestamp="`${a.created_at} · ${a.type === 'final' ? '竣工验收' : '阶段验收'} · ${a.name}`">
           <div>{{ a.content || '' }}</div>
-          <div v-if="a.status === 'rework'" style="color: #f56c6c; font-size: 12px">整改要求：{{ a.rework_reason }}</div>
+          <div v-if="a.status === 'rework'" style="color: var(--danger-600); font-size: 12px">整改要求：{{ a.rework_reason }}</div>
           <div v-if="a.status === 'pending' && role === 'owner'" style="margin-top: 4px">
             <el-button type="success" size="small" @click="reviewAcceptance(a, 'approved')">验收通过</el-button>
             <el-button type="danger" size="small" @click="reviewAcceptance(a, 'rework')">退回整改</el-button>
@@ -198,6 +200,7 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Aim } from '@element-plus/icons-vue'
 import api from '../api'
 import { useUserStore } from '../store'
 
