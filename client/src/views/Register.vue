@@ -1,5 +1,18 @@
 <template>
-  <div class="auth-page">
+  <div class="login-page">
+    <div class="brand-pane">
+      <div class="bp-inner">
+        <div class="bp-logo">▦</div>
+        <h1>创建账号</h1>
+        <p class="bp-sub">加入弱电工程管理平台，开始你的第一步</p>
+        <ul class="bp-points">
+          <li>甲方：发布工程、资金托管、在线验收</li>
+          <li>工程师：投标接活、施工留痕、按时结算</li>
+          <li>免费注册，QQ 邮箱验证码即可完成</li>
+        </ul>
+      </div>
+    </div>
+    <div class="form-pane">
     <el-card class="auth-card">
       <h2>注册</h2>
       <el-form :model="form" @submit.prevent="handleRegister" label-position="top">
@@ -97,6 +110,7 @@
         已有账号？<router-link to="/login">立即登录</router-link>
       </div>
     </el-card>
+    </div>
   </div>
 </template>
 
@@ -242,6 +256,34 @@ const handleRegister = async () => {
 .rc-t{ font-weight:600;color:#0F172A;font-size:15px; }
 .rc-d{ font-size:12px;color:#64748B;margin-top:2px; }
 @media (max-width:480px){ .role-cards{ flex-direction:column; } }
+/* 全屏左右分栏（与登录页一致） */
+.login-page{ display:flex; min-height:calc(100vh - 59px); }
+.brand-pane{
+  width:42%; flex:none; position:sticky; top:0; align-self:flex-start; height:100vh;
+  background:linear-gradient(150deg,#0B2A5B 0%,#1D4ED8 65%,#0891B2 100%);
+  color:#fff; display:flex; align-items:center;
+}
+.bp-inner{ padding:48px 52px; max-width:460px; }
+.bp-logo{
+  width:46px;height:46px;border-radius:12px;background:rgba(255,255,255,.14);
+  border:1px solid rgba(255,255,255,.25);display:flex;align-items:center;justify-content:center;
+  font-size:22px;margin-bottom:22px;
+}
+.brand-pane h1{ font-size:26px;letter-spacing:1px;margin-bottom:10px; }
+.bp-sub{ color:#C7D8F5;font-size:14px;margin-bottom:26px; }
+.bp-points{ list-style:none; display:flex; flex-direction:column; gap:12px; }
+.bp-points li{ color:#DCE7FB; font-size:13.5px; padding-left:24px; position:relative; }
+.bp-points li::before{ content:"✓"; position:absolute; left:0; color:#7DD3FC; font-weight:700; }
+.form-pane{ flex:1; display:flex; justify-content:center; padding:32px 20px 60px; }
+.form-pane .el-card{
+  width:min(560px,100%); border:none; border-radius:14px;
+  box-shadow:0 12px 32px rgba(15,42,67,.14) !important;
+}
+.form-pane .el-card__body{ padding:30px 34px; }
+@media (max-width:860px){
+  .brand-pane{ display:none; }
+  .form-pane{ padding:20px 12px; }
+}
 .auth-page {
   display: flex;
   justify-content: center;

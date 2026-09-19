@@ -1,6 +1,19 @@
 <template>
   <div class="login-page">
-    <el-card class="auth-card login-card">
+    <div class="brand-pane">
+      <div class="bp-inner">
+        <div class="bp-logo">▦</div>
+        <h1>弱电工程管理平台</h1>
+        <p class="bp-sub">连接工程需求方与专业工程师，让弱电工程更高效</p>
+        <ul class="bp-points">
+          <li>资金托管 · 平台见证签署，交易有保障</li>
+          <li>进度 · 打卡 · 验收全流程在线留痕</li>
+          <li>质保金到期自动释放，售后有依靠</li>
+        </ul>
+      </div>
+    </div>
+    <div class="form-pane">
+    <el-card class="auth-card">
       <h2>登录</h2>
 
       <!-- 登录方式切换 -->
@@ -87,6 +100,7 @@
         </template>
       </el-dialog>
     </el-card>
+    </div>
   </div>
 </template>
 
@@ -237,24 +251,33 @@ const handlePhoneLogin = async () => {
 </script>
 
 <style scoped>
-/* 左右分栏品牌登录页 */
-.login-page { display: flex; justify-content: center; align-items: center; min-height: calc(100vh - 98px); }
-.login-page > .el-card.login-card {
-  width: min(880px, 94vw); overflow: hidden; padding: 0; border: none;
-  display: grid; grid-template-columns: 1.05fr 1fr; border-radius: 14px;
-  box-shadow: 0 12px 32px rgba(15,42,67,.14) !important;
+/* 全屏左右分栏：左侧品牌满高，右侧表单居中 */
+.login-page { display: flex; min-height: calc(100vh - 59px); }
+.brand-pane{
+  width: 42%; flex: none;
+  background: linear-gradient(150deg, #0B2A5B 0%, #1D4ED8 65%, #0891B2 100%);
+  color: #fff; display: flex; align-items: center;
 }
-.login-page > .el-card.login-card::before {
-  content: "弱电工程管理平台\A 连接工程需求方与专业工程师，让弱电工程更高效\A\A ✓ 资金托管 · 平台见证签署，交易有保障\A ✓ 进度 · 打卡 · 验收全流程在线留痕\A ✓ 质保金到期自动释放，售后有依靠";
-  white-space: pre-line; display: block;
-  background: linear-gradient(150deg, #0B2A5B, #1D4ED8 65%, #0891B2);
-  color: #fff; padding: 38px 34px; font-size: 13px; line-height: 2;
+.bp-inner{ padding: 48px 52px; max-width: 480px; }
+.bp-logo{
+  width: 46px; height: 46px; border-radius: 12px; background: rgba(255,255,255,.14);
+  border: 1px solid rgba(255,255,255,.25); display: flex; align-items: center; justify-content: center;
+  font-size: 22px; margin-bottom: 22px;
 }
-.login-page > .el-card.login-card::before { font-size: 20px; font-weight: 700; line-height: 1.5; letter-spacing: 1px; }
-.login-page > .el-card.login-card .el-card__body { padding: 36px 34px; background: #fff; }
-@media (max-width: 760px) {
-  .login-page > .el-card.login-card { grid-template-columns: 1fr; }
-  .login-page > .el-card.login-card::before { display: none; }
+.brand-pane h1{ font-size: 27px; letter-spacing: 1px; margin-bottom: 10px; line-height: 1.35; }
+.bp-sub{ color: #C7D8F5; font-size: 14px; margin-bottom: 26px; }
+.bp-points{ list-style: none; display: flex; flex-direction: column; gap: 12px; }
+.bp-points li{ color: #DCE7FB; font-size: 13.5px; padding-left: 24px; position: relative; }
+.bp-points li::before{ content: "✓"; position: absolute; left: 0; color: #7DD3FC; font-weight: 700; }
+.form-pane{ flex: 1; display: flex; align-items: center; justify-content: center; padding: 32px 20px; }
+.form-pane .el-card{
+  width: min(420px, 100%); border: none; box-shadow: 0 12px 32px rgba(15,42,67,.14) !important;
+  border-radius: 14px;
+}
+.form-pane .el-card__body{ padding: 34px 36px; }
+@media (max-width: 860px){
+  .brand-pane{ display: none; }
+  .form-pane{ padding: 24px 14px; align-items: flex-start; }
 }
 
 .auth-page {
