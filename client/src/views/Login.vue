@@ -1,6 +1,6 @@
 <template>
-  <div class="auth-page">
-    <el-card class="auth-card">
+  <div class="login-page">
+    <el-card class="auth-card login-card">
       <h2>登录</h2>
 
       <!-- 登录方式切换 -->
@@ -237,6 +237,26 @@ const handlePhoneLogin = async () => {
 </script>
 
 <style scoped>
+/* 左右分栏品牌登录页 */
+.login-page { display: flex; justify-content: center; align-items: center; min-height: calc(100vh - 98px); }
+.login-page > .el-card.login-card {
+  width: min(880px, 94vw); overflow: hidden; padding: 0; border: none;
+  display: grid; grid-template-columns: 1.05fr 1fr; border-radius: 14px;
+  box-shadow: 0 12px 32px rgba(15,42,67,.14) !important;
+}
+.login-page > .el-card.login-card::before {
+  content: "弱电工程管理平台\A 连接工程需求方与专业工程师，让弱电工程更高效\A\A ✓ 资金托管 · 平台见证签署，交易有保障\A ✓ 进度 · 打卡 · 验收全流程在线留痕\A ✓ 质保金到期自动释放，售后有依靠";
+  white-space: pre-line; display: block;
+  background: linear-gradient(150deg, #0B2A5B, #1D4ED8 65%, #0891B2);
+  color: #fff; padding: 38px 34px; font-size: 13px; line-height: 2;
+}
+.login-page > .el-card.login-card::before { font-size: 20px; font-weight: 700; line-height: 1.5; letter-spacing: 1px; }
+.login-page > .el-card.login-card .el-card__body { padding: 36px 34px; background: #fff; }
+@media (max-width: 760px) {
+  .login-page > .el-card.login-card { grid-template-columns: 1fr; }
+  .login-page > .el-card.login-card::before { display: none; }
+}
+
 .auth-page {
   display: flex;
   justify-content: center;

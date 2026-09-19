@@ -89,7 +89,7 @@
       </el-col>
       <el-col :span="16">
         <el-card>
-          <template #header><h3>模拟充值</h3></template>
+          <template #header><h3>账户充值</h3></template>
           <el-form inline>
             <el-form-item label="充值金额">
               <el-input-number v-model="depositAmount" :min="1" :max="100000" :step="100" />
@@ -100,6 +100,9 @@
           </el-form>
           <div class="quick-amounts">
             <el-button v-for="a in [100, 500, 1000, 5000, 10000]" :key="a" @click="depositAmount = a">¥{{ a }}</el-button>
+          </div>
+          <div style="margin-top: 10px">
+            <el-button link type="primary" @click="router.push('/wallet')">前往钱包查看流水、发票与提现 →</el-button>
           </div>
         </el-card>
 

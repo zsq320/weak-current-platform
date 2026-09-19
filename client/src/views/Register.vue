@@ -16,16 +16,25 @@
         </el-form-item>
 
         <el-form-item label="角色" required>
-          <el-radio-group v-model="form.role">
-            <el-radio value="user">甲方（发布工程）</el-radio>
-            <el-radio value="engineer">工程师（接取工程）</el-radio>
-          </el-radio-group>
+          <div class="role-cards">
+            <div class="role-card" :class="{ on: form.role === 'user' }" @click="form.role = 'user'">
+              <div class="rc-icon">🏗️</div>
+              <div class="rc-t">甲方</div>
+              <div class="rc-d">发布工程、托付资金</div>
+            </div>
+            <div class="role-card" :class="{ on: form.role === 'engineer' }" @click="form.role = 'engineer'">
+              <div class="rc-icon">🔧</div>
+              <div class="rc-t">工程师</div>
+              <div class="rc-d">投标接活、施工结算</div>
+            </div>
+          </div>
         </el-form-item>
 
         <el-form-item label="真实姓名">
           <el-input v-model="form.real_name" placeholder="请输入真实姓名" />
         </el-form-item>
 
+        <div class="form-section">安全验证</div>
         <el-form-item label="手机号" required>
           <el-row :gutter="10">
             <el-col :span="16">
@@ -217,6 +226,22 @@ const handleRegister = async () => {
 </script>
 
 <style scoped>
+.form-section{
+  font-size:13px;font-weight:600;color:#2563EB;letter-spacing:1px;
+  padding:6px 10px;border-left:3px solid #2563EB;background:#F5F9FF;
+  border-radius:0 6px 6px 0;margin:8px 0 14px;
+}
+.role-cards{ display:flex;gap:12px;width:100%; }
+.role-card{
+  flex:1;border:1.5px solid #E2E8F0;border-radius:10px;padding:14px 12px;text-align:center;
+  cursor:pointer;transition:.15s;background:#fff;
+}
+.role-card:hover{ border-color:#93BBFD; }
+.role-card.on{ border-color:#2563EB;background:#F5F9FF;box-shadow:0 2px 8px rgba(37,99,235,.15); }
+.rc-icon{ font-size:26px;margin-bottom:6px; }
+.rc-t{ font-weight:600;color:#0F172A;font-size:15px; }
+.rc-d{ font-size:12px;color:#64748B;margin-top:2px; }
+@media (max-width:480px){ .role-cards{ flex-direction:column; } }
 .auth-page {
   display: flex;
   justify-content: center;

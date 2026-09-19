@@ -22,7 +22,7 @@ import Navbar from './components/Navbar.vue'
 
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: 'Microsoft YaHei', sans-serif; background: #f5f7fa; }
+body { font-family: 'PingFang SC', 'Microsoft YaHei', 'Segoe UI', sans-serif; background: #F4F6FA; color: #334155; }
 .main-container { max-width: 1200px; margin: 0 auto; padding: 20px; min-height: calc(100vh - 60px); }
 
 /* ============ 移动端全局适配 ============ */

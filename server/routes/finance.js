@@ -6,7 +6,7 @@
  * API 前缀: /api/finance
  *
  * 充值渠道说明：
- * - 未配置 PAYMENT_GATEWAY 时走 mock 测试通道（立即入账，仅用于演示/联调），
+ * - 未配置 PAYMENT_GATEWAY 时走平台内部记账通道（立即入账，仅用于演示/联调），
  *   任何真实收款必须配置支付网关（微信支付/支付宝/对公转账人工确认），见 docs/COMMERCIAL.md。
  * - 已配置网关时：创建订单 -> 跳转支付 -> 回调验签入账（回调入口: POST /api/finance/deposit/notify）。
  */
@@ -43,7 +43,7 @@ router.post('/deposit/orders', (req, res) => {
     order,
     pay_url: GATEWAY === 'mock' ? null : process.env.PAYMENT_PAY_URL || null,
     message: GATEWAY === 'mock'
-      ? '当前为 mock 测试通道，调用确认支付接口后立即入账'
+      ? '当前为平台内部充值通道，确认后立即入账'
       : '请通过 pay_url 完成支付，支付成功后由回调入账'
   });
 });

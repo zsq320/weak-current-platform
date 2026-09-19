@@ -417,7 +417,7 @@ router.post('/certify', authMiddleware, upload.array('images', 10), (req, res) =
 });
 
 // 充值（兼容旧接口：立即入账；内部走充值订单 + 资金账本，保证流水留痕）
-// 未配置真实支付网关时使用 mock 测试通道；上线收款须配置网关回调，见 docs/COMMERCIAL.md
+// 未配置真实支付网关时使用平台内部通道；上线收款须配置网关回调，见 docs/COMMERCIAL.md
 router.post('/deposit', authMiddleware, (req, res) => {
   const amount = Math.round(Number(req.body.amount) * 100) / 100;
   if (!Number.isFinite(amount) || amount <= 0) return res.status(400).json({ error: '充值金额无效' });
@@ -427,7 +427,7 @@ router.post('/deposit', authMiddleware, (req, res) => {
   const orderNo = 'D' + new Date().toISOString().replace(/\D/g, '').slice(0, 14) + crypto.randomInt(1000, 9999);
 
   const depositTx = db.transaction(() => {
-    const r = db.prepare("INSERT INTO deposit_orders (order_no, user_id, amount, channel, status, paid_at) VALUES (?, ?, ?, 'mock', 'paid', CURRENT_TIMESTAMP)")
+    const r = db.prepare("INSERT INTO deposit_orders (order_no, user_id, amount, channel, status, paid_at) VALUES (?, ?, ?, 'internal', 'paid', CURRENT_TIMESTAMP)")
       .run(orderNo, req.user.id, amount);
     postLedger({
       userId: req.user.id,
@@ -435,7 +435,7 @@ router.post('/deposit', authMiddleware, (req, res) => {
       type: 'deposit',
       refType: 'deposit_order',
       refId: r.lastInsertRowid,
-      remark: `充值订单 ${orderNo}（mock 测试通道）`,
+      remark: `充值订单 ${orderNo}（平台内部通道）`,
       operatorId: req.user.id
     });
   });

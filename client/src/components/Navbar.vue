@@ -1,8 +1,8 @@
 <template>
   <el-menu mode="horizontal" :router="true" class="navbar" :default-active="route.path">
     <div class="nav-brand" @click="router.push('/')">
-      <el-icon><Monitor /></el-icon>
-      <span>弱电工程管理平台</span>
+      <span class="brand-logo"><el-icon><Monitor /></el-icon></span>
+      <span class="brand-name">弱电工程管理平台</span>
     </div>
 
     <!-- 甲方菜单 -->
@@ -138,8 +138,10 @@ const handleCommand = (cmd) => {
 </script>
 
 <style scoped>
-.navbar { display: flex; align-items: center; padding: 0 20px; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.08); position: sticky; top: 0; z-index: 100; }
-.nav-brand { display: flex; align-items: center; gap: 8px; font-size: 18px; font-weight: bold; color: #409eff; cursor: pointer; margin-right: 20px; white-space: nowrap; }
+.navbar { height: 58px; display: flex; align-items: center; padding: 0 22px; background: #fff; box-shadow: 0 1px 2px rgba(15,42,67,.06); border-bottom: 1px solid #E2E8F0; position: sticky; top: 0; z-index: 100; }
+.nav-brand { display: flex; align-items: center; gap: 9px; font-size: 16.5px; font-weight: 700; color: #0F172A; cursor: pointer; margin-right: 24px; white-space: nowrap; }
+.brand-logo { width: 30px; height: 30px; border-radius: 8px; background: linear-gradient(135deg, #2563EB, #0891B2); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 15px; }
+.brand-name { letter-spacing: .5px; }
 .nav-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
 .user-info { display: flex; align-items: center; gap: 8px; cursor: pointer; }
 .username { font-size: 14px; }
@@ -156,4 +158,11 @@ const handleCommand = (cmd) => {
   .user-info .el-tag { display: none; }
   .msg-badge { margin-right: 2px; }
 }
+</style>
+
+<style>
+/* Navbar 菜单项统一分段样式（全局，作用于 el-menu-item） */
+.navbar .el-menu-item { height: 58px; line-height: 58px; border-bottom: 2px solid transparent; color: #334155; }
+.navbar .el-menu-item:hover { background: #F5F9FF; color: #2563EB; }
+.navbar .el-menu-item.is-active { color: #1D4ED8; border-bottom-color: #2563EB; background: transparent; font-weight: 600; }
 </style>

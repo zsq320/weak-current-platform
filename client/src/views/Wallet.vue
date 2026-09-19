@@ -106,7 +106,7 @@
 
     <!-- 充值对话框 -->
     <el-dialog v-model="depositDialog" title="账户充值" width="420px">
-      <el-alert type="info" :closable="false" title="当前为 mock 测试通道，确认后立即入账" style="margin-bottom: 14px" />
+      <el-alert type="info" :closable="false" title="当前为平台内部充值通道，支付网关对接中" style="margin-bottom: 14px" />
       <el-form label-width="80px">
         <el-form-item label="金额">
           <el-input-number v-model="depositAmount" :min="1" :max="100000" :step="100" style="width: 100%" />

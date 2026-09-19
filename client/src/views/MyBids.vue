@@ -23,30 +23,18 @@
       </template>
 
       <!-- 统计卡片 -->
-      <el-row :gutter="16" style="margin-bottom: 20px">
-        <el-col :xs="12" :md="6">
-          <el-card shadow="hover" class="stat-card">
-            <div class="stat-value">{{ stats.total }}</div>
-            <div class="stat-label">总投标数</div>
-          </el-card>
+      <el-row :gutter="14" style="margin-bottom: 18px">
+        <el-col :xs="12" :sm="12" :md="6">
+          <StatCard icon="📮" icon-bg="#F0F9FF" icon-color="#0EA5E9" :value="stats.total" label="总投标数" />
         </el-col>
-        <el-col :xs="12" :md="6">
-          <el-card shadow="hover" class="stat-card">
-            <div class="stat-value" style="color: #e6a23c">{{ stats.pending }}</div>
-            <div class="stat-label">待定中</div>
-          </el-card>
+        <el-col :xs="12" :sm="12" :md="6">
+          <StatCard icon="⏳" icon-bg="#FFFBEB" icon-color="#D97706" :value="stats.pending" label="待定中" />
         </el-col>
-        <el-col :xs="12" :md="6">
-          <el-card shadow="hover" class="stat-card">
-            <div class="stat-value" style="color: #67c23a">{{ stats.accepted }}</div>
-            <div class="stat-label">已中标</div>
-          </el-card>
+        <el-col :xs="12" :sm="12" :md="6">
+          <StatCard icon="🎉" icon-bg="#F0FDF4" icon-color="#16A34A" :value="stats.accepted" label="已中标" />
         </el-col>
-        <el-col :xs="12" :md="6">
-          <el-card shadow="hover" class="stat-card">
-            <div class="stat-value" style="color: #f56c6c">{{ stats.rejected }}</div>
-            <div class="stat-label">未中标</div>
-          </el-card>
+        <el-col :xs="12" :sm="12" :md="6">
+          <StatCard icon="🚫" icon-bg="#FEF2F2" icon-color="#DC2626" :value="stats.rejected" label="未中标" />
         </el-col>
       </el-row>
 
@@ -127,6 +115,8 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { CircleCheck, CircleClose } from '@element-plus/icons-vue'
 import api from '../api'
+import StatCard from '../components/ui/StatCard.vue'
+import StatusTag from '../components/ui/StatusTag.vue'
 
 const router = useRouter()
 const bids = ref([])

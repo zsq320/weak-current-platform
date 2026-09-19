@@ -163,7 +163,7 @@ const engineerCards = computed(() => [
 
 const initClientCharts = () => {
   if (statusChartRef.value && clientData.value.projectsByStatus?.length) {
-    const chart = echarts.init(statusChartRef.value)
+    const chart = echarts.init(statusChartRef.value, 'app')
     chart.setOption({
       tooltip: { trigger: 'item' },
       series: [{
@@ -174,7 +174,7 @@ const initClientCharts = () => {
     charts.push(chart)
   }
   if (monthlyChartRef.value && clientData.value.monthlySpending?.length) {
-    const chart = echarts.init(monthlyChartRef.value)
+    const chart = echarts.init(monthlyChartRef.value, 'app')
     chart.setOption({
       tooltip: { trigger: 'axis' },
       xAxis: { type: 'category', data: clientData.value.monthlySpending.map(m => m.month) },
@@ -187,7 +187,7 @@ const initClientCharts = () => {
 
 const initEngineerCharts = () => {
   if (statusChartRef.value && engineerData.value.bidsByStatus?.length) {
-    const chart = echarts.init(statusChartRef.value)
+    const chart = echarts.init(statusChartRef.value, 'app')
     const nameMap = { pending: '待定', accepted: '已中标', rejected: '未中标' }
     chart.setOption({
       tooltip: { trigger: 'item' },
@@ -199,7 +199,7 @@ const initEngineerCharts = () => {
     charts.push(chart)
   }
   if (monthlyChartRef.value && engineerData.value.monthlyEarnings?.length) {
-    const chart = echarts.init(monthlyChartRef.value)
+    const chart = echarts.init(monthlyChartRef.value, 'app')
     chart.setOption({
       tooltip: { trigger: 'axis' },
       xAxis: { type: 'category', data: engineerData.value.monthlyEarnings.map(m => m.month) },

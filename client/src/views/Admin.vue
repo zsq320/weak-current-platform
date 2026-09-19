@@ -1,5 +1,15 @@
 <template>
-  <div class="admin-container">
+  <div class="admin-shell">
+    <!-- 左侧深色导航 -->
+    <aside class="admin-side">
+      <div class="side-brand"><span class="logo">▦</span> 管理后台</div>
+      <div class="grp">运营管理</div>
+      <div v-for="m in sideMenus" :key="m.key" class="it" :class="{ on: activeTab === m.key }" @click="activeTab = m.key">
+        <span class="ic">{{ m.icon }}</span>{{ m.label }}
+      </div>
+    </aside>
+
+    <div class="admin-main">
     <el-tabs v-model="activeTab" @tab-change="handleTabChange" class="admin-tabs">
       <!-- 平台概览 -->
       <el-tab-pane label="平台概览" name="overview">
@@ -330,6 +340,7 @@
       </div>
       <el-empty v-if="certViewerImages.length === 0" description="无图片" :image-size="60" />
     </el-dialog>
+    </div>
   </div>
 </template>
 
@@ -417,7 +428,7 @@ const initOverviewCharts = () => {
   charts = []
 
   if (userRoleChartRef.value && adminStats.value.users_by_role?.length) {
-    const chart = echarts.init(userRoleChartRef.value)
+    const chart = echarts.init(userRoleChartRef.value, 'app')
     const nameMap = { user: '甲方', engineer: '工程师', admin: '管理员' }
     chart.setOption({
       tooltip: { trigger: 'item' },
@@ -427,7 +438,7 @@ const initOverviewCharts = () => {
   }
 
   if (projectStatusChartRef.value && adminStats.value.projects_by_status?.length) {
-    const chart = echarts.init(projectStatusChartRef.value)
+    const chart = echarts.init(projectStatusChartRef.value, 'app')
     chart.setOption({
       tooltip: { trigger: 'item' },
       series: [{ type: 'pie', radius: '60%', data: adminStats.value.projects_by_status.map(p => ({ name: statusName[p.status] || p.status, value: p.count })) }]
@@ -436,7 +447,7 @@ const initOverviewCharts = () => {
   }
 
   if (revenueChartRef.value && adminStats.value.monthly_revenue?.length) {
-    const chart = echarts.init(revenueChartRef.value)
+    const chart = echarts.init(revenueChartRef.value, 'app')
     chart.setOption({
       tooltip: { trigger: 'axis' },
       xAxis: { type: 'category', data: adminStats.value.monthly_revenue.map(m => m.month) },
@@ -552,6 +563,18 @@ const viewCertImages = (row) => {
   certViewerVisible.value = true
 }
 
+// 左侧导航菜单（与 activeTab 联动）
+const sideMenus = [
+  { key: 'overview', label: '平台概览', icon: '📊' },
+  { key: 'users', label: '用户管理', icon: '👥' },
+  { key: 'certs', label: '认证审批', icon: '🪪' },
+  { key: 'projects', label: '工程管理', icon: '📁' },
+  { key: 'contracts', label: '合同管理', icon: '📄' },
+  { key: 'finance', label: '财务概览', icon: '💰' },
+  { key: 'ops', label: '运营中心', icon: '⚙️' },
+  { key: 'logs', label: '操作日志', icon: '📜' }
+]
+
 const handleTabChange = (tab) => {
   if (tab === 'overview') fetchStats()
   else if (tab === 'users') fetchUsers()
@@ -572,6 +595,32 @@ onBeforeUnmount(() => {
   charts = []
 })
 </script>
+
+<style scoped>
+.admin-shell{ display:flex; gap:16px; align-items:flex-start; }
+.admin-side{
+  width:176px; flex:none; background:#0F2544; border-radius:10px; padding:14px 10px;
+  position:sticky; top:74px; max-height:calc(100vh - 90px); overflow-y:auto;
+}
+.side-brand{ color:#fff; font-weight:700; font-size:15px; padding:4px 10px 14px; display:flex; align-items:center; gap:8px; }
+.side-brand .logo{ width:26px; height:26px; border-radius:7px; background:linear-gradient(135deg,#2563EB,#0891B2); display:inline-flex; align-items:center; justify-content:center; font-size:13px; }
+.grp{ color:#5F779B; font-size:11.5px; padding:8px 10px 6px; letter-spacing:1px; }
+.it{
+  padding:9px 10px; border-radius:6px; margin-bottom:2px; color:#A9BEDD; font-size:13.5px;
+  display:flex; gap:8px; align-items:center; cursor:pointer; transition:.15s;
+}
+.it:hover{ background:rgba(255,255,255,.06); color:#fff; }
+.it.on{ background:#2563EB; color:#fff; font-weight:600; }
+.ic{ font-size:15px; }
+.admin-main{ flex:1; min-width:0; }
+.admin-main :deep(.admin-tabs > .el-tabs__header){ display:none; }
+@media (max-width:900px){
+  .admin-shell{ flex-direction:column; }
+  .admin-side{ width:100%; position:static; display:flex; overflow-x:auto; max-height:none; padding:8px; gap:4px; }
+  .side-brand, .grp{ display:none; }
+  .it{ flex:none; padding:7px 12px; }
+}
+</style>
 
 <style scoped>
 .admin-container {

@@ -1,15 +1,24 @@
 <template>
   <div class="project-detail" v-if="project">
-    <el-page-header @back="router.back()">
-      <template #content>
-        <span class="page-title">{{ project.title }}</span>
-      </template>
-    </el-page-header>
+    <div class="detail-header">
+      <div class="dh-left">
+        <el-button link @click="router.back()">← 返回</el-button>
+        <h2 class="dh-title">{{ project.title }} <StatusTag kind="project" :status="project.status" /></h2>
+        <div class="dh-meta">
+          {{ project.location || '未填写地点' }} · 预算 <AmountText :value="project.budget" /> · 截止 {{ project.deadline || '未设置' }} · {{ bids.length || project.bid_count || 0 }} 份投标
+        </div>
+      </div>
+      <div class="dh-actions">
+        <el-button v-if="isOwner && project.status === 'bidding'" type="success" @click="startProject">开始工程</el-button>
+        <el-button v-if="isOwner && project.status === 'in_progress'" type="success" @click="completeProject">完成工程</el-button>
+        <el-button v-if="canBid" type="primary" @click="showBidForm = true">立即投标</el-button>
+      </div>
+    </div>
 
     <el-row :gutter="24" style="margin-top: 20px">
       <el-col :xs="24" :md="16">
         <!-- 标签页切换 -->
-        <el-tabs v-model="activeTab" type="border-card">
+        <el-tabs v-model="activeTab" class="detail-tabs">
           <!-- 工程详情标签 -->
           <el-tab-pane label="工程详情" name="detail">
             <el-card>
@@ -117,31 +126,18 @@
             </template>
 
             <!-- 进度统计卡片 -->
-            <el-row :gutter="16" style="margin-bottom: 16px">
-              <el-col :xs="12" :md="6">
-                <el-card shadow="hover" class="stat-card">
-                  <div class="stat-value">{{ progressStats.overall_progress }}%</div>
-                  <div class="stat-label">总体进度</div>
-                  <el-progress :percentage="progressStats.overall_progress" :stroke-width="6" :show-text="false" />
-                </el-card>
+            <el-row :gutter="14" style="margin-bottom: 14px">
+              <el-col :xs="12" :sm="12" :md="6">
+                <StatCard icon="📊" icon-bg="#EFF5FF" icon-color="#2563EB" :value="progressStats.overall_progress + '%'" label="总体进度" />
               </el-col>
-              <el-col :xs="12" :md="6">
-                <el-card shadow="hover" class="stat-card">
-                  <div class="stat-value">{{ taskStats.total }}</div>
-                  <div class="stat-label">任务总数</div>
-                </el-card>
+              <el-col :xs="12" :sm="12" :md="6">
+                <StatCard icon="📋" icon-bg="#F0F9FF" icon-color="#0EA5E9" :value="taskStats.total" label="任务总数" />
               </el-col>
-              <el-col :xs="12" :md="6">
-                <el-card shadow="hover" class="stat-card">
-                  <div class="stat-value" style="color: #67c23a">{{ taskStats.completed }}</div>
-                  <div class="stat-label">已完成</div>
-                </el-card>
+              <el-col :xs="12" :sm="12" :md="6">
+                <StatCard icon="✅" icon-bg="#F0FDF4" icon-color="#16A34A" :value="taskStats.completed" label="已完成" />
               </el-col>
-              <el-col :xs="12" :md="6">
-                <el-card shadow="hover" class="stat-card">
-                  <div class="stat-value" style="color: #f56c6c">{{ taskStats.overdue }}</div>
-                  <div class="stat-label">已逾期</div>
-                </el-card>
+              <el-col :xs="12" :sm="12" :md="6">
+                <StatCard icon="⏰" icon-bg="#FEF2F2" icon-color="#DC2626" :value="taskStats.overdue" label="已逾期" />
               </el-col>
             </el-row>
 
@@ -481,6 +477,9 @@ import { Refresh, Plus, Edit } from '@element-plus/icons-vue'
 import BidForm from '../components/BidForm.vue'
 import BidScoreDialog from '../components/BidScoreDialog.vue'
 import ConstructionPanel from '../components/ConstructionPanel.vue'
+import StatCard from '../components/ui/StatCard.vue'
+import StatusTag from '../components/ui/StatusTag.vue'
+import AmountText from '../components/ui/AmountText.vue'
 import ChatPanel from '../components/ChatPanel.vue'
 import echarts from '../utils/echarts'
 import api from '../api'
@@ -738,7 +737,7 @@ const updateGanttChart = () => {
   if (!ganttChart.value) return
 
   if (!ganttChartInstance) {
-    ganttChartInstance = echarts.init(ganttChart.value)
+    ganttChartInstance = echarts.init(ganttChart.value, 'app')
   }
   // 切换标签页后容器才可见，先 resize 保证画布尺寸正确
   ganttChartInstance.resize()
@@ -1096,6 +1095,17 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+.detail-header{
+  background:#fff;border:1px solid #E2E8F0;border-radius:10px;padding:16px 20px;margin-bottom:16px;
+  display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;
+  box-shadow:0 1px 2px rgba(15,42,67,.06);
+}
+.dh-left{ min-width:0; }
+.dh-title{ font-size:18px;font-weight:700;color:#0F172A;display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 4px; }
+.dh-meta{ font-size:12.5px;color:#64748B; }
+.dh-actions{ display:flex;gap:8px;flex-wrap:wrap; }
+.detail-tabs .el-tabs__header{ background:transparent; border:none; margin-bottom:14px; }
+.detail-tabs .el-tabs__item{ font-size:14.5px; }
 .page-title { font-size: 18px; font-weight: bold; }
 .card-header-row { display: flex; justify-content: space-between; align-items: center; }
 .description { margin-top: 20px; }
