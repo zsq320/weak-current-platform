@@ -10,8 +10,6 @@
         </div>
         <h1>创建账号</h1>
         <p class="auth-subtitle">选择身份，加入工程协同平台</p>
-        <h1>创建账号</h1>
-        <p>选择身份，加入工程协同平台</p>
       </div>
 
       <el-form class="cas-auth-form" :model="form" @submit.prevent="handleRegister" label-position="top">
