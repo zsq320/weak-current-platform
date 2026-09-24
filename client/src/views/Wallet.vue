@@ -199,17 +199,21 @@ const typeText = (t) => ({
 }[t] || t)
 
 const fetchWallet = async () => {
-  const [w, wd, rt, inv] = await Promise.all([
-    api.get('/finance/ledger', { params: { pageSize: 50 } }),
-    api.get('/finance/withdrawals'),
-    api.get('/finance/retentions'),
-    api.get('/biz/invoices')
-  ])
-  wallet.value = w
-  ledger.value = w.items || []
-  withdrawals.value = wd.items || []
-  retentions.value = rt.items || []
-  invoices.value = inv.items || []
+  try {
+    const [w, wd, rt, inv] = await Promise.all([
+      api.get('/finance/ledger', { params: { pageSize: 50 } }),
+      api.get('/finance/withdrawals'),
+      api.get('/finance/retentions'),
+      api.get('/biz/invoices')
+    ])
+    wallet.value = w
+    ledger.value = w.items || []
+    withdrawals.value = wd.items || []
+    retentions.value = rt.items || []
+    invoices.value = inv.items || []
+  } catch (e) {
+    // 加载失败保持已有数据不变，错误提示由 axios 拦截器统一给出
+  }
 }
 
 const doDeposit = async () => {

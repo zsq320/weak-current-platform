@@ -221,21 +221,25 @@ const settingsForm = reactive({
 })
 
 const fetchAll = async () => {
-  const [wd, dp, inv, cp, ap, pi, bk, st] = await Promise.all([
-    api.get('/admin/withdrawals'), api.get('/biz/disputes'), api.get('/biz/invoices'),
-    api.get('/admin/companies'), api.get('/admin/review-appeals'), api.get('/finance/platform-income'),
-    api.get('/admin/backups'), api.get('/admin/settings')
-  ])
-  withdrawals.value = wd.items
-  disputes.value = dp.items
-  invoices.value = inv.items
-  companies.value = cp.items
-  appeals.value = ap.items
-  platformIncome.value = pi.items
-  backups.value = bk.items
-  st.items.forEach(s => {
-    if (settingsForm[s.key] !== undefined) settingsForm[s.key] = s.value
-  })
+  try {
+    const [wd, dp, inv, cp, ap, pi, bk, st] = await Promise.all([
+      api.get('/admin/withdrawals'), api.get('/biz/disputes'), api.get('/biz/invoices'),
+      api.get('/admin/companies'), api.get('/admin/review-appeals'), api.get('/finance/platform-income'),
+      api.get('/admin/backups'), api.get('/admin/settings')
+    ])
+    withdrawals.value = wd.items
+    disputes.value = dp.items
+    invoices.value = inv.items
+    companies.value = cp.items
+    appeals.value = ap.items
+    platformIncome.value = pi.items
+    backups.value = bk.items
+    st.items.forEach(s => {
+      if (settingsForm[s.key] !== undefined) settingsForm[s.key] = s.value
+    })
+  } catch (e) {
+    // 加载失败保持已有数据不变，错误提示由 axios 拦截器统一给出
+  }
 }
 
 const processWithdraw = async (row, action) => {

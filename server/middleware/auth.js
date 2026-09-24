@@ -133,6 +133,15 @@ function authMiddleware(req, res, next) {
       return res.status(401).json({ error: '令牌已失效，请重新登录' });
     }
 
+    // 账户状态即时校验：被禁用的账号不能继续使用未过期的令牌
+    const userRow = db.prepare('SELECT is_disabled FROM users WHERE id = ?').get(decoded.id);
+    if (!userRow) {
+      return res.status(401).json({ error: '用户不存在' });
+    }
+    if (userRow.is_disabled) {
+      return res.status(403).json({ error: '账户已被禁用，请联系管理员' });
+    }
+
     req.user = decoded;
     req.tokenJti = decoded.jti;
     next();

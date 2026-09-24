@@ -187,6 +187,11 @@ router.post('/verify', (req, res) => {
       return res.status(400).json({ error: '无效的验证类型' });
     }
 
+    // purpose 必须与发送渠道一致，防止用本接口消耗其他用途（如 reset）的验证码
+    if (!['register', 'login'].includes(purpose)) {
+      return res.status(400).json({ error: '无效的验证类型' });
+    }
+
     // 查询验证码
     const record = db.prepare(`
       SELECT * FROM verification_codes

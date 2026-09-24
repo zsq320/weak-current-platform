@@ -119,8 +119,6 @@ router.get('/global', optionalAuth, (req, res) => {
     const isLoggedIn = !!req.user;
     const isAdmin = req.user?.role === 'admin';
 
-    console.log('[Dashboard Stats] User:', req.user?.username, 'Role:', req.user?.role, 'isAdmin:', isAdmin);
-
     // 管理员返回完整详细数据
     if (isAdmin) {
       const clientsResult = db.prepare("SELECT COUNT(*) as count FROM users WHERE role = 'user'").get();

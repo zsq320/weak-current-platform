@@ -294,11 +294,15 @@ router.get('/projects/:projectId/chat', (req, res) => {
   const ctx = getChatContext(req, req.params.projectId);
   if (ctx.error) return res.status(ctx.code).json({ error: ctx.error });
   const afterId = Math.floor(Number(req.query.after_id) || 0);
+  // 只返回与当前用户相关的消息（我是发送方或接收方），
+  // 防止未中标的投标方看到甲方与其他投标方的沟通内容
   const items = db.prepare(`
     SELECT c.*, u.username, u.real_name FROM chat_messages c
     JOIN users u ON c.from_user_id = u.id
-    WHERE c.project_id = ? AND c.id > ? ORDER BY c.id ASC LIMIT 200
-  `).all(ctx.project.id, afterId);
+    WHERE c.project_id = ? AND c.id > ?
+      AND (c.from_user_id = ? OR c.to_user_id = ?)
+    ORDER BY c.id ASC LIMIT 200
+  `).all(ctx.project.id, afterId, req.user.id, req.user.id);
   if (items.length > 0 && ctx.peerId) {
     db.prepare('UPDATE chat_messages SET is_read = 1 WHERE project_id = ? AND to_user_id = ? AND is_read = 0')
       .run(ctx.project.id, req.user.id);
@@ -323,20 +327,8 @@ router.post('/projects/:projectId/chat', (req, res) => {
 });
 
 // ============ 协议 ============
-router.get('/agreements/:type', (req, res) => {
-  const type = ['user_agreement', 'privacy'].includes(req.params.type) ? req.params.type : 'user_agreement';
-  const fs = require('fs');
-  const path = require('path');
-  const file = path.join(__dirname, '..', 'legal', `${type}.md`);
-  let content = '';
-  try {
-    content = fs.readFileSync(file, 'utf8');
-  } catch (e) {
-    content = `# 文档缺失\n\n请联系平台管理员补充 ${type} 文档。`;
-  }
-  res.json({ type, content, version: '1.0' });
-});
-
+// （公开读取接口 /agreements/:type 已在文件顶部、authMiddleware 之前注册，
+//   此处仅保留登录用户的签署记录接口，避免重复定义不可达路由）
 router.post('/agreements/:type/accept', (req, res) => {
   const type = ['user_agreement', 'privacy'].includes(req.params.type) ? req.params.type : null;
   if (!type) return res.status(400).json({ error: '协议类型无效' });

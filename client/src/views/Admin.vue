@@ -71,17 +71,17 @@
             <div style="display: flex; justify-content: space-between; align-items: center">
               <h3 style="margin:0">用户列表</h3>
               <div style="display: flex; gap: 10px">
-                <el-input v-model="userFilter.keyword" placeholder="搜索用户名/姓名/手机" clearable style="width: 200px" @clear="fetchUsers" @keyup.enter="fetchUsers" />
-                <el-select v-model="userFilter.role" placeholder="角色筛选" clearable style="width: 120px" @change="fetchUsers">
+                <el-input v-model="userFilter.keyword" placeholder="搜索用户名/姓名/手机" clearable style="width: 200px" @clear="searchUsers" @keyup.enter="searchUsers" />
+                <el-select v-model="userFilter.role" placeholder="角色筛选" clearable style="width: 120px" @change="searchUsers">
                   <el-option label="甲方" value="user" />
                   <el-option label="工程师" value="engineer" />
                   <el-option label="管理员" value="admin" />
                 </el-select>
-                <el-select v-model="userFilter.is_disabled" placeholder="状态筛选" clearable style="width: 120px" @change="fetchUsers">
+                <el-select v-model="userFilter.is_disabled" placeholder="状态筛选" clearable style="width: 120px" @change="searchUsers">
                   <el-option label="正常" value="0" />
                   <el-option label="已禁用" value="1" />
                 </el-select>
-                <el-button type="primary" @click="fetchUsers">搜索</el-button>
+                <el-button type="primary" @click="searchUsers">搜索</el-button>
               </div>
             </div>
           </template>
@@ -177,14 +177,14 @@
             <div style="display: flex; justify-content: space-between; align-items: center">
               <h3 style="margin:0">全部工程</h3>
               <div style="display: flex; gap: 10px">
-                <el-input v-model="projectFilter.keyword" placeholder="搜索工程名称" clearable style="width: 200px" @clear="fetchProjects" @keyup.enter="fetchProjects" />
-                <el-select v-model="projectFilter.status" placeholder="状态筛选" clearable style="width: 120px" @change="fetchProjects">
+                <el-input v-model="projectFilter.keyword" placeholder="搜索工程名称" clearable style="width: 200px" @clear="searchProjects" @keyup.enter="searchProjects" />
+                <el-select v-model="projectFilter.status" placeholder="状态筛选" clearable style="width: 120px" @change="searchProjects">
                   <el-option label="招标中" value="bidding" />
                   <el-option label="进行中" value="in_progress" />
                   <el-option label="已完成" value="completed" />
                   <el-option label="已取消" value="cancelled" />
                 </el-select>
-                <el-button type="primary" @click="fetchProjects">搜索</el-button>
+                <el-button type="primary" @click="searchProjects">搜索</el-button>
               </div>
             </div>
           </template>
@@ -226,7 +226,7 @@
           <template #header>
             <div style="display: flex; justify-content: space-between; align-items: center">
               <h3 style="margin:0">全部合同</h3>
-              <el-select v-model="contractFilter.status" placeholder="状态筛选" clearable style="width: 120px" @change="fetchContracts">
+              <el-select v-model="contractFilter.status" placeholder="状态筛选" clearable style="width: 120px" @change="searchContracts">
                 <el-option label="履行中" value="active" />
                 <el-option label="已完成" value="completed" />
                 <el-option label="已终止" value="terminated" />
@@ -294,7 +294,7 @@
             <div style="display: flex; justify-content: space-between; align-items: center">
               <h3 style="margin:0">操作日志</h3>
               <div style="display: flex; gap: 10px">
-                <el-select v-model="logFilter.action" placeholder="操作类型" clearable style="width: 160px" @change="fetchLogs">
+                <el-select v-model="logFilter.action" placeholder="操作类型" clearable style="width: 160px" @change="searchLogs">
                   <el-option label="登录" value="login" />
                   <el-option label="注册" value="register" />
                   <el-option label="发布工程" value="publish_project" />
@@ -306,7 +306,7 @@
                   <el-option label="变更角色" value="change_role" />
                   <el-option label="强制取消工程" value="force_cancel_project" />
                 </el-select>
-                <el-button type="primary" @click="fetchLogs">筛选</el-button>
+                <el-button type="primary" @click="searchLogs">筛选</el-button>
               </div>
             </div>
           </template>
@@ -422,7 +422,6 @@ const fetchStats = async () => {
     initOverviewCharts()
   } catch (e) {}
 }
-
 const initOverviewCharts = () => {
   charts.forEach(c => c.dispose())
   charts = []
@@ -512,6 +511,12 @@ const fetchLogs = async () => {
     logTotal.value = res.total
   } catch (e) {}
 }
+
+// 筛选条件变化时回到第 1 页，避免停留在超出新结果集的页码上看到空列表
+const searchUsers = () => { userPage.value = 1; fetchUsers() }
+const searchProjects = () => { projectPage.value = 1; fetchProjects() }
+const searchContracts = () => { contractPage.value = 1; fetchContracts() }
+const searchLogs = () => { logPage.value = 1; fetchLogs() }
 
 // 操作
 const handleCert = async (userId, action) => {

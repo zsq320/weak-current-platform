@@ -72,6 +72,16 @@ function errorHandler(err, req, res, next) {
     error = new ValidationError(messages.join('; '));
   }
 
+  // 请求体 JSON 解析失败
+  if (err.type === 'entity.parse.failed') {
+    error = new ValidationError('请求体格式错误：JSON 解析失败');
+  }
+
+  // 文件上传类错误（multer 大小限制 / fileFilter 拒绝）
+  if (err.name === 'MulterError' || (typeof err.message === 'string' && err.message.includes('只允许上传'))) {
+    error = new ValidationError(err.name === 'MulterError' ? '上传文件过大或不符合要求' : err.message);
+  }
+
   // SQLite 唯一约束错误
   if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
     const match = err.message.match(/UNIQUE constraint failed: (.+)/);

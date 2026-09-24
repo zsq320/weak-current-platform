@@ -34,9 +34,6 @@ const router = createRouter({
   routes
 })
 
-// 白名单路径（不需要登录即可访问）
-const whiteList = ['/', '/login', '/register']
-
 router.beforeEach((to, from, next) => {
   // 修复：使用正确的 key 'accessToken'
   const token = localStorage.getItem('accessToken')

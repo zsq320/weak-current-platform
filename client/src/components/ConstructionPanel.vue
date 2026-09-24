@@ -55,7 +55,7 @@
           <el-button type="primary" size="small">上传照片</el-button>
         </el-upload>
       </div>
-      <el-image v-for="p in photos" :key="p.id" :src="p.file_path" :preview-src-list="[p.file_path]"
+      <el-image v-for="p in photos" :key="p.id" :src="p.url" :preview-src-list="[p.url]"
         fit="cover" style="width: 100px; height: 100px; margin: 4px; border-radius: 6px" />
       <el-empty v-if="photos.length === 0" description="暂无照片" :image-size="60" />
     </el-tab-pane>
@@ -188,7 +188,7 @@
         <el-table-column prop="created_at" label="上传时间" width="170" />
         <el-table-column label="下载" width="80">
           <template #default="{ row }">
-            <el-link type="primary" :href="row.path" target="_blank">下载</el-link>
+            <el-link type="primary" :href="withToken(row.path)" target="_blank">下载</el-link>
           </template>
         </el-table-column>
       </el-table>
@@ -234,27 +234,34 @@ const uploadUrl = `/api/projects/${props.projectId}/construction/photos`
 const fileUploadUrl = `/api/projects/${props.projectId}/construction/files`
 const uploadHeaders = computed(() => ({ Authorization: `Bearer ${localStorage.getItem('accessToken')}` }))
 
+// 施工过程照片/文件目录已加令牌保护，静态访问需追加 ?token=（与认证材料一致）
+const withToken = (p) => `${p}?token=${encodeURIComponent(localStorage.getItem('accessToken') || '')}`
+
 const fetchAll = async () => {
   const base = `/projects/${props.projectId}/construction`
   const perm = await api.get(`${base}/logs`).catch(() => null)
   if (!perm || !perm.items) { noAccess.value = true; return }
   noAccess.value = false
   role.value = perm.role || 'viewer'
-  const [ck, ph, hd, mt, bq, ac, fl] = await Promise.all([
-    api.get(`${base}/checkins`), api.get(`${base}/photos`), api.get(`${base}/hidden`),
-    api.get(`${base}/materials`), api.get(`${base}/boq`), api.get(`${base}/acceptances`),
-    api.get(`${base}/files`)
-  ])
-  logs.value = perm.items
-  checkins.value = ck.items
-  photos.value = ph.items
-  hidden.value = hd.items
-  materials.value = mt.items
-  boq.value = bq.items
-  boqTotal.value = bq.boq_total
-  budget.value = bq.budget
-  acceptances.value = ac.items
-  files.value = fl.items
+  try {
+    const [ck, ph, hd, mt, bq, ac, fl] = await Promise.all([
+      api.get(`${base}/checkins`), api.get(`${base}/photos`), api.get(`${base}/hidden`),
+      api.get(`${base}/materials`), api.get(`${base}/boq`), api.get(`${base}/acceptances`),
+      api.get(`${base}/files`)
+    ])
+    logs.value = perm.items
+    checkins.value = ck.items
+    photos.value = (ph.items || []).map(p => ({ ...p, url: withToken(p.file_path) }))
+    hidden.value = hd.items
+    materials.value = mt.items
+    boq.value = bq.items
+    boqTotal.value = bq.boq_total
+    budget.value = bq.budget
+    acceptances.value = ac.items
+    files.value = fl.items
+  } catch (e) {
+    // 部分模块加载失败时保留日志数据，其余展示为空，错误提示由拦截器给出
+  }
 }
 
 const addLog = async () => {

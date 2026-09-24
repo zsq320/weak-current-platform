@@ -186,7 +186,8 @@ router.get('/project/:projectId', authMiddleware, (req, res) => {
       'duration': 'b.duration',
       'created_at': 'b.created_at',
       'total_score': 'COALESCE(bs.total_score, 0)',
-      'rating': 'COALESCE(AVG(r.rating), 0)',
+      // 使用 SELECT 里的输出别名 avg_rating（直接写 AVG(r.rating) 会因不存在表别名 r 而报错）
+      'rating': 'avg_rating',
       'experience': 'b.experience_years'
     }[sort] || 'b.created_at';
 
@@ -214,10 +215,11 @@ router.get('/project/:projectId', authMiddleware, (req, res) => {
 // 获取单个投标详情（仅投标本人、项目所有者和管理员可见）
 router.get('/:id', authMiddleware, (req, res) => {
   try {
+    // 不返回工程师的邮箱与余额（与投标决策无关，避免向项目发布者泄露）
     const bid = db.prepare(`
       SELECT b.*,
-             u.username, u.real_name, u.phone, u.email, u.avatar,
-             u.certification, u.certification_status, u.balance,
+             u.username, u.real_name, u.phone, u.avatar,
+             u.certification, u.certification_status,
              p.title as project_title, p.budget as project_budget, p.status as project_status, p.user_id as owner_id,
              bs.price_score, bs.duration_score, bs.qualification_score, bs.technical_score,
              bs.total_score, bs.price_comment, bs.duration_comment,

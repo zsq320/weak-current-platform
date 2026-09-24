@@ -26,6 +26,9 @@ router.get('/stream', (req, res) => {
   // 黑名单检查与 auth 中间件一致
   const blacklisted = db.prepare('SELECT id FROM token_blacklist WHERE jti = ?').get(payload.jti || '');
   if (blacklisted) return res.status(401).json({ error: '令牌已失效' });
+  // 账户状态校验与 auth 中间件一致（被禁用账号不推送）
+  const userRow = db.prepare('SELECT is_disabled FROM users WHERE id = ?').get(userId);
+  if (!userRow || userRow.is_disabled) return res.status(403).json({ error: '账户不可用' });
 
   res.writeHead(200, {
     'Content-Type': 'text/event-stream',

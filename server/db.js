@@ -793,25 +793,30 @@ try {
       const rotateTx = db.transaction(() => {
         let rotated = 0;
         rows.forEach(r => {
-          const upd = {};
-          try {
-            if (r.id_card_encrypted) upd.id = enc(dec(r.id_card_encrypted, oldKey), newKey);
-            if (r.bank_card_encrypted) upd.bank = enc(dec(r.bank_card_encrypted, oldKey), newKey);
-          } catch (err) {
-            // 用新密钥解不开说明已是新格式；用旧密钥也解不开说明数据异常，跳过
+          // 逐字段独立轮换：单个字段异常只跳过该字段。
+          // 旧实现整行 try/catch，一好一坏时整行跳过但指纹已记录，坏字段此后永远无法再轮换。
+          const fields = [
+            { col: 'id_card_encrypted', val: r.id_card_encrypted },
+            { col: 'bank_card_encrypted', val: r.bank_card_encrypted }
+          ].filter(f => f.val);
+          const setClauses = [];
+          const setParams = [];
+          fields.forEach(f => {
             try {
-              if (r.id_card_encrypted) dec(r.id_card_encrypted, newKey);
-              if (r.bank_card_encrypted) dec(r.bank_card_encrypted, newKey);
-              return; // 已是新密钥加密
-            } catch (e2) {
-              console.error(`[迁移] 用户#${r.id} 密文无法解密，跳过`);
-              return;
+              setClauses.push(`${f.col} = ?`);
+              setParams.push(enc(dec(f.val, oldKey), newKey));
+            } catch (err) {
+              try {
+                dec(f.val, newKey); // 已是新密钥加密，保留原值
+              } catch (e2) {
+                console.error(`[迁移] 用户#${r.id} 的 ${f.col} 密文无法解密，跳过该字段`);
+              }
             }
+          });
+          if (setClauses.length > 0) {
+            db.prepare(`UPDATE users SET ${setClauses.join(', ')} WHERE id = ?`).run(...setParams, r.id);
+            rotated++;
           }
-          db.prepare('UPDATE users SET id_card_encrypted = ?, bank_card_encrypted = ? WHERE id = ?')
-            .run(upd.id !== undefined ? upd.id : r.id_card_encrypted,
-                 upd.bank !== undefined ? upd.bank : r.bank_card_encrypted, r.id);
-          rotated++;
         });
         return rotated;
       });

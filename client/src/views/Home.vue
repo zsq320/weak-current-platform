@@ -19,13 +19,13 @@
     </div>
 
     <div class="filters" ref="filterRef">
-      <el-input v-model="filters.keyword" placeholder="搜索工程标题或描述" clearable @keyup.enter="fetchProjects" class="search-input">
+      <el-input v-model="filters.keyword" placeholder="搜索工程标题或描述" clearable @keyup.enter="applyFilters" class="search-input">
         <template #prefix><el-icon><Search /></el-icon></template>
       </el-input>
-      <el-select v-model="filters.category" placeholder="工程分类" clearable @change="fetchProjects">
+      <el-select v-model="filters.category" placeholder="工程分类" clearable @change="applyFilters">
         <el-option v-for="c in categories" :key="c" :label="c" :value="c" />
       </el-select>
-      <el-select v-model="filters.status" placeholder="工程状态" clearable @change="fetchProjects">
+      <el-select v-model="filters.status" placeholder="工程状态" clearable @change="applyFilters">
         <el-option label="招标中" value="bidding" />
         <el-option label="进行中" value="in_progress" />
         <el-option label="已完成" value="completed" />
@@ -99,6 +99,12 @@ const fetchProjects = async () => {
   } catch (e) {
     ElMessage.error('加载工程列表失败')
   }
+}
+
+// 筛选条件变化时回到第 1 页，避免停留在超出新结果集的页码上看到空列表
+const applyFilters = () => {
+  page.value = 1
+  fetchProjects()
 }
 
 onMounted(() => {

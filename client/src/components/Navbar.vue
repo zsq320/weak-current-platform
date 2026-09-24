@@ -92,6 +92,16 @@ watch(() => route.path, fetchUnread)
 let sseSource = null
 let sseRetryTimer = null
 
+// 判断访问令牌是否已过期（解 JWT 载荷的 exp，仅用于决定是否先刷新令牌）
+const isTokenExpired = (token) => {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')))
+    return payload.exp * 1000 < Date.now() + 5000
+  } catch (err) {
+    return false
+  }
+}
+
 const connectSSE = () => {
   if (sseSource || !userStore.isLoggedIn) return
   const token = localStorage.getItem('accessToken')
@@ -104,12 +114,18 @@ const connectSSE = () => {
         unreadCount.value = data.count ?? unreadCount.value
       } catch (err) { /* 忽略 */ }
     })
-    sseSource.onerror = () => {
-      // 断线重连（15秒退避）；EventSource 自身也会重连，这里兜底重建
+    sseSource.onerror = async () => {
+      // 断线后先检查令牌：过期则刷新令牌再重连，避免带着过期令牌无限重连 401
       sseSource.close()
       sseSource = null
       clearTimeout(sseRetryTimer)
-      sseRetryTimer = setTimeout(connectSSE, 15000)
+      const token = localStorage.getItem('accessToken')
+      if (token && isTokenExpired(token)) {
+        const ok = await userStore.refreshTokens()
+        if (!ok) return // 刷新失败：会话已失效，由 axios 拦截器处理登出
+      }
+      if (!userStore.isLoggedIn) return
+      sseRetryTimer = setTimeout(connectSSE, 5000)
     }
   } catch (err) { /* 浏览器不支持则退化为路由切换时轮询 */ }
 }

@@ -99,23 +99,27 @@ app.use(express.static(path.join(__dirname, '..', 'client', 'dist'), {
 }));
 
 // 上传文件目录
-// 身份证/资质等敏感目录必须带有效令牌访问（支持 Authorization 头或 ?token= 查询参数，后者供 <img> 使用）
-app.use('/uploads/certifications', (req, res, next) => {
+// 敏感目录（认证材料/施工过程照片与图纸）必须带有效令牌访问
+// （支持 Authorization 头或 ?token= 查询参数，后者供 <img>/<a> 使用）
+function requireUploadToken(req, res, next) {
   const jwt = require('jsonwebtoken');
-  const authDb = require('./db');
   const authHeader = req.headers.authorization || '';
   const queryToken = req.query.token || '';
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : String(queryToken);
   try {
     const payload = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ['HS256'] });
-    const blacklisted = authDb.prepare('SELECT id FROM token_blacklist WHERE jti = ?').get(payload.jti || '');
+    const blacklisted = db.prepare('SELECT id FROM token_blacklist WHERE jti = ?').get(payload.jti || '');
     if (blacklisted) throw new Error('blacklisted');
+    const userRow = db.prepare('SELECT is_disabled FROM users WHERE id = ?').get(payload.id);
+    if (!userRow || userRow.is_disabled) throw new Error('disabled');
     req.uploadUser = payload;
     next();
   } catch (e) {
     res.status(401).json({ error: '访问认证材料需要登录凭证' });
   }
-});
+}
+app.use('/uploads/certifications', requireUploadToken);
+app.use('/uploads/construction', requireUploadToken);
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // ============ API 路由（带速率限制）============
@@ -216,4 +220,23 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log('  - 登录防暴力破解');
   console.log('  - JWT 令牌刷新机制');
   console.log('========================================');
+});
+
+// 优雅退出：先关闭 SQLite 句柄再退出，避免 WAL/SHM 残留
+function shutdown(signal) {
+  console.log(`\n收到 ${signal} 信号，正在关闭服务...`);
+  try {
+    db.close();
+    console.log('数据库已安全关闭');
+  } catch (e) {
+    console.error('关闭数据库失败:', e.message);
+  }
+  process.exit(0);
+}
+process.on('SIGINT', () => shutdown('SIGINT'));
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+
+// 未捕获的 Promise 拒绝记录到结构化日志（Node 默认行为保留）
+process.on('unhandledRejection', (reason) => {
+  logger.error({ kind: 'unhandled_rejection', error: String((reason && reason.message) || reason) });
 });

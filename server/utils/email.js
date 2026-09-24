@@ -95,12 +95,14 @@ async function sendEmail(to, code, purpose = 'register') {
     return { success: true, messageId: info.messageId };
   } catch (error) {
     console.error(`[Email] 发送失败:`, error.message);
-    // 开发环境：即使发送失败也输出验证码到控制台
-    console.log('='.repeat(50));
-    console.log(`【邮件验证码】(发送失败，显示在此)`);
-    console.log(`收件人: ${to}`);
-    console.log(`验证码: ${code}`);
-    console.log('='.repeat(50));
+    // 验证码只允许在非生产环境的控制台输出（生产日志不得出现验证码）
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('='.repeat(50));
+      console.log(`【邮件验证码】(发送失败，显示在此)`);
+      console.log(`收件人: ${to}`);
+      console.log(`验证码: ${code}`);
+      console.log('='.repeat(50));
+    }
     return { success: false, error: error.message, code };
   }
 }

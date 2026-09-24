@@ -111,7 +111,7 @@ async function main() {
   console.log('【4】实名认证与投标门槛');
   const verify = await api('POST', '/api/auth/verify-identity', {
     token: eng,
-    body: { real_name: '李工程', id_card: '110101199001011234' }
+    body: { real_name: '李工程', id_card: '110101199001011237' }
   });
   assert('实名认证提交成功（或已完成）', verify.status === 200 || (verify.status === 400 && String(verify.json.error || '').includes('已完成')),
     JSON.stringify(verify.json).slice(0, 120));

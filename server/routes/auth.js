@@ -484,9 +484,13 @@ router.post('/verify-identity', authMiddleware, (req, res) => {
     return res.status(400).json({ error: '请输入身份证号' });
   }
 
-  // 验证身份证号格式（18位）
+  // 验证身份证号格式（18位）+ GB11643 校验位（与 /sensitive 接口的校验标准保持一致）
   if (!/^\d{17}[\dXx]$/.test(id_card)) {
     return res.status(400).json({ error: '身份证号格式不正确' });
+  }
+  const idCheck = validateIdCard(id_card);
+  if (!idCheck.valid) {
+    return res.status(400).json({ error: '身份证号无效：' + idCheck.reason });
   }
 
   // 检查用户是否已实名

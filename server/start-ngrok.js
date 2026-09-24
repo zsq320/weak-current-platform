@@ -8,40 +8,20 @@
 // NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
 // See the Mulan PSL v2 for more details.
 
+// 启动完整主服务（含全部业务路由、限流与安全中间件），再叠加 ngrok 公网隧道。
+// 历史版本在此文件里复制了一份残缺的 Express 应用（缺少 biz/finance/tasks 等路由
+// 与安全中间件），已改为直接复用 server/index.js，避免两套行为不一致的服务。
+
 // 加载环境变量
 require('dotenv').config();
 
-const express = require('express');
-const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
 
-const app = express();
+require('./index');
+
 const PORT = process.env.PORT || 3000;
-
-app.use(cors());
-app.use(express.json());
-app.use((req, res, next) => {
-  if (req.path.startsWith('/api')) {
-    res.setHeader('Content-Type', 'application/json; charset=utf-8');
-  }
-  next();
-});
-app.use(express.static(path.join(__dirname, '..', 'client', 'dist')));
-
-app.use('/api/auth', require('./routes/auth'));
-app.use('/api/projects', require('./routes/projects'));
-app.use('/api/bids', require('./routes/bids'));
-app.use('/api/contracts', require('./routes/contracts'));
-app.use('/api/reviews', require('./routes/reviews'));
-app.use('/api/messages', require('./routes/messages'));
-app.use('/api/dashboard', require('./routes/dashboard'));
-app.use('/api/admin', require('./routes/admin'));
-
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'client', 'dist', 'index.html'));
-});
 
 // 查找 ngrok 可执行文件
 function findNgrokBin() {
@@ -57,11 +37,7 @@ function findNgrokBin() {
   return null;
 }
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log('========================================');
-  console.log('  弱电工程管理平台已启动');
-  console.log('========================================');
-  console.log(`  本机访问: http://localhost:${PORT}`);
+(function startTunnel() {
   console.log('');
   console.log('  正在连接 ngrok 隧道...');
 
@@ -98,24 +74,19 @@ app.listen(PORT, '0.0.0.0', () => {
     windowsHide: true,
   });
 
-  let started = false;
+  ngrokProcess.on('error', (err) => {
+    console.error('');
+    console.error('  ngrok 启动失败:', err.message);
+  });
 
-  ngrokProcess.stdout.on('data', (data) => {
-    const text = data.toString();
-    if (!started && text.includes('started')) {
-      started = true;
+  ngrokProcess.on('exit', (code) => {
+    if (code && code !== 0) {
+      console.error('');
+      console.error(`  ngrok 进程退出，代码: ${code}`);
     }
   });
 
-  ngrokProcess.stderr.on('data', (data) => {
-    const text = data.toString();
-    // ngrok 把启动信息输出到 stderr
-    if (text.includes('started tunnel') || text.includes('url=')) {
-      started = true;
-    }
-  });
-
-  // 给 ngrok 一些时间启动，然后通过 API 检查
+  // 给 ngrok 一些时间启动，然后通过本地 API 检查隧道状态
   setTimeout(async () => {
     try {
       const http = require('http');
@@ -159,22 +130,9 @@ app.listen(PORT, '0.0.0.0', () => {
     }
   }, 5000);
 
-  ngrokProcess.on('error', (err) => {
-    console.error('');
-    console.error('  ngrok 启动失败:', err.message);
-  });
-
-  ngrokProcess.on('exit', (code) => {
-    if (code && code !== 0) {
-      console.error('');
-      console.error(`  ngrok 进程退出，代码: ${code}`);
-    }
-  });
-
-  // 优雅退出
   process.on('SIGINT', () => {
     console.log('\n  正在断开隧道...');
     ngrokProcess.kill();
     process.exit(0);
   });
-});
+})();

@@ -198,15 +198,32 @@ router.post('/projects/:id/cancel', (req, res) => {
   if (!project) return res.status(404).json({ error: '工程不存在' });
   if (project.status === 'completed' || project.status === 'cancelled') return res.status(400).json({ error: '工程已结束' });
 
-  db.prepare('UPDATE projects SET status = ? WHERE id = ?').run('cancelled', Number(req.params.id));
-  db.prepare('UPDATE bids SET status = ? WHERE project_id = ? AND status = ?').run('rejected', Number(req.params.id), 'pending');
-  db.prepare("UPDATE contracts SET status = 'terminated' WHERE project_id = ? AND status = 'active'").run(Number(req.params.id));
+  const projectId = Number(req.params.id);
+  const activeContracts = db.prepare("SELECT * FROM contracts WHERE project_id = ? AND status = 'active'").all(projectId);
+  const insertMsg = db.prepare('INSERT INTO messages (from_user_id, to_user_id, title, content, type) VALUES (?, ?, ?, ?, ?)');
 
-  logAudit(req.user.id, 'force_cancel_project', 'project', Number(req.params.id), null, req.ip);
+  const cancelTx = db.transaction(() => {
+    db.prepare('UPDATE projects SET status = ? WHERE id = ?').run('cancelled', projectId);
+    db.prepare('UPDATE bids SET status = ? WHERE project_id = ? AND status = ?').run('rejected', projectId, 'pending');
+    activeContracts.forEach(c => {
+      // 已托管的资金必须随合同终止退回甲方，否则托管款将永久冻结
+      if (c.escrow_status === 'frozen') {
+        postLedger({ userId: c.owner_id, amount: c.amount, type: 'release_escrow', refType: 'contract', refId: c.id, remark: `工程被管理员强制取消，托管资金退回（合同#${c.id}）` });
+      }
+      db.prepare("UPDATE contracts SET status = 'terminated', escrow_status = CASE WHEN escrow_status = 'frozen' THEN 'refunded' ELSE escrow_status END WHERE id = ?").run(c.id);
+      insertMsg.run(req.user.id, c.engineer_id, '合同已随工程取消而终止', `您在工程「${project.title}」中的合同已被管理员强制取消并终止${c.escrow_status === 'frozen' ? '，托管资金已退回甲方账户' : '。'}。`, 'contract');
+    });
+    insertMsg.run(req.user.id, project.user_id, '工程已被管理员取消', `您的工程「${project.title}」已被管理员强制取消`, 'system');
+  });
 
-  db.prepare('INSERT INTO messages (from_user_id, to_user_id, title, content, type) VALUES (?, ?, ?, ?, ?)').run(
-    req.user.id, project.user_id, '工程已被管理员取消', `您的工程「${project.title}」已被管理员强制取消`, 'system'
-  );
+  try {
+    cancelTx();
+  } catch (err) {
+    console.error('强制取消工程失败:', err);
+    return res.status(500).json({ error: '强制取消失败，请稍后重试' });
+  }
+
+  logAudit(req.user.id, 'force_cancel_project', 'project', projectId, { terminated_contracts: activeContracts.length }, req.ip);
 
   res.json({ message: '工程已强制取消' });
 });
@@ -384,20 +401,33 @@ router.post('/disputes/:id/arbitrate', (req, res) => {
 
   const { resolution, refund_amount, target } = req.body; // target: owner(退款给甲方)/engineer(放款给乙方)
   if (!String(resolution || '').trim()) return res.status(400).json({ error: '请填写仲裁处理意见' });
-  const refund = Math.round(Number(refund_amount) * 100) / 100;
+  // refund_amount 可选：不传或传空表示仅办结不涉及资金
+  const refund = Math.round(Number(refund_amount || 0) * 100) / 100;
+  if (!Number.isFinite(refund) || refund < 0) return res.status(400).json({ error: '处置金额无效' });
 
   const arbitrateTx = db.transaction(() => {
     let contract = null;
     if (d.contract_id) contract = db.prepare('SELECT * FROM contracts WHERE id = ?').get(d.contract_id);
 
     if (contract && contract.status === 'active' && refund > 0 && ['owner', 'engineer'].includes(target)) {
-      if (target === 'engineer') {
+      if (contract.escrow_status === 'frozen') {
+        // 托管冻结时资金必须从托管池中处置：先全额解冻给甲方，再按仲裁方向从甲方余额划转，
+        // 避免凭空入账（直接放款给乙方）或托管差额蒸发（只退部分却标记已退回）
+        if (refund > contract.amount) {
+          const err = new Error(`处置金额不能超过托管金额 ${contract.amount} 元`);
+          err.code = 'INVALID_REFUND';
+          throw err;
+        }
+        postLedger({ userId: contract.owner_id, amount: contract.amount, type: 'release_escrow', refType: 'dispute', refId: d.id, remark: `纠纷仲裁解冻托管资金（纠纷#${d.id}）` });
+        if (target === 'engineer') {
+          postLedger({ userId: contract.owner_id, amount: -refund, type: 'settlement', refType: 'dispute', refId: d.id, remark: `纠纷仲裁划转给乙方（纠纷#${d.id}）` });
+          postLedger({ userId: contract.engineer_id, amount: refund, type: 'settlement', refType: 'dispute', refId: d.id, remark: '纠纷仲裁放款（纠纷#' + d.id + '）' });
+        }
+        db.prepare("UPDATE contracts SET escrow_status = 'refunded' WHERE id = ?").run(contract.id);
+      } else if (target === 'engineer') {
         postLedger({ userId: contract.engineer_id, amount: refund, type: 'settlement', refType: 'dispute', refId: d.id, remark: '纠纷仲裁放款（纠纷#' + d.id + '）' });
       } else {
         postLedger({ userId: contract.owner_id, amount: refund, type: 'refund', refType: 'dispute', refId: d.id, remark: '纠纷仲裁退款（纠纷#' + d.id + '）' });
-      }
-      if (contract.escrow_status === 'frozen' && target === 'owner') {
-        db.prepare("UPDATE contracts SET escrow_status = 'refunded' WHERE id = ?").run(contract.id);
       }
     }
 
@@ -408,6 +438,7 @@ router.post('/disputes/:id/arbitrate', (req, res) => {
   try {
     arbitrateTx();
   } catch (err) {
+    if (err.code === 'INVALID_REFUND') return res.status(400).json({ error: err.message });
     return res.status(500).json({ error: err.message || '仲裁失败' });
   }
   logAudit(req.user.id, 'arbitrate_dispute', 'dispute', d.id, { refund, target }, req.ip);
