@@ -62,8 +62,24 @@ router.get('/warranties', (req, res) => {
   res.json({ items });
 });
 
+// 校验并解析工单/纠纷引用的工程照片附件：photo_ids 必须属于对应工程
+function resolvePhotoAttachments(photoIds, projectId) {
+  if (photoIds === undefined || photoIds === null) return [];
+  const ids = Array.isArray(photoIds) ? photoIds.map(Number) : [];
+  if (ids.length > 9) throw Object.assign(new Error('附件最多9张'), { status: 400 });
+  const stmt = db.prepare('SELECT id, file_path FROM project_photos WHERE id = ? AND project_id = ?');
+  const list = [];
+  for (const id of ids) {
+    if (!Number.isInteger(id) || id <= 0) throw Object.assign(new Error('附件照片ID无效'), { status: 400 });
+    const row = stmt.get(id, projectId);
+    if (!row) throw Object.assign(new Error('附件照片不存在或不属于该工程'), { status: 400 });
+    list.push({ id: row.id, path: row.file_path });
+  }
+  return list;
+}
+
 router.post('/warranties', (req, res) => {
-  const { project_id, title, description } = req.body;
+  const { project_id, title, description, photo_ids } = req.body;
   const pid = Number(project_id);
   const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(pid);
   if (!project) return res.status(404).json({ error: '工程不存在' });
@@ -74,8 +90,14 @@ router.post('/warranties', (req, res) => {
   if (contract.retention_released_at) return res.status(400).json({ error: '质保期已结束' });
 
   if (!title || !String(title).trim()) return res.status(400).json({ error: '请填写报修标题' });
-  const result = db.prepare('INSERT INTO warranty_tickets (project_id, contract_id, user_id, title, description) VALUES (?, ?, ?, ?, ?)')
-    .run(pid, contract.id, req.user.id, String(title).trim(), description || null);
+  let attachments;
+  try {
+    attachments = resolvePhotoAttachments(photo_ids, pid);
+  } catch (e) {
+    return res.status(e.status || 400).json({ error: e.message });
+  }
+  const result = db.prepare('INSERT INTO warranty_tickets (project_id, contract_id, user_id, title, description, attachments) VALUES (?, ?, ?, ?, ?, ?)')
+    .run(pid, contract.id, req.user.id, String(title).trim(), description || null, attachments.length ? JSON.stringify(attachments) : null);
   logAudit(req.user.id, 'create_warranty', 'warranty_ticket', result.lastInsertRowid, { project_id: pid }, req.ip);
   res.status(201).json({ message: '报修工单已提交', id: result.lastInsertRowid });
 });
@@ -193,24 +215,33 @@ router.get('/disputes', (req, res) => {
 });
 
 router.post('/disputes', (req, res) => {
-  const { project_id, contract_id, against_user_id, reason, description } = req.body;
+  const { project_id, contract_id, against_user_id, reason, description, photo_ids } = req.body;
   if (!reason || !String(reason).trim()) return res.status(400).json({ error: '请填写纠纷事由' });
 
   let contractId = null;
+  let refProjectId = project_id ? Number(project_id) : null;
   let againstId = against_user_id ? Number(against_user_id) : null;
   if (contract_id) {
     const { contract, error, code } = getContractWithAccess(req, contract_id);
     if (error) return res.status(code).json({ error });
     contractId = contract.id;
+    refProjectId = refProjectId || contract.project_id;
     againstId = againstId || (req.user.id === contract.owner_id ? contract.engineer_id : contract.owner_id);
   }
   if (!contractId && !project_id) return res.status(400).json({ error: '请关联工程或合同' });
 
+  let attachments;
+  try {
+    attachments = resolvePhotoAttachments(photo_ids, refProjectId);
+  } catch (e) {
+    return res.status(e.status || 400).json({ error: e.message });
+  }
+
   const result = db.prepare(`
-    INSERT INTO disputes (user_id, project_id, contract_id, against_user_id, reason, description)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `).run(req.user.id, project_id ? Number(project_id) : null, contractId, againstId,
-    String(reason).trim(), description || null);
+    INSERT INTO disputes (user_id, project_id, contract_id, against_user_id, reason, description, attachments)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(req.user.id, refProjectId, contractId, againstId,
+    String(reason).trim(), description || null, attachments.length ? JSON.stringify(attachments) : null);
   logAudit(req.user.id, 'create_dispute', 'dispute', result.lastInsertRowid, { contract_id: contractId }, req.ip);
   res.status(201).json({ message: '投诉已提交，平台将介入处理', id: result.lastInsertRowid });
 });

@@ -44,9 +44,9 @@ router.post('/', authMiddleware, (req, res) => {
     .run(Number(contract_id), req.user.id, to_user_id, ratingNum, commentText);
 
   const project = db.prepare('SELECT title FROM projects WHERE id = ?').get(contract.project_id);
-  db.prepare('INSERT INTO messages (from_user_id, to_user_id, title, content, type) VALUES (?, ?, ?, ?, ?)').run(
+  db.prepare('INSERT INTO messages (from_user_id, to_user_id, title, content, type, ref_type, ref_id) VALUES (?, ?, ?, ?, ?, ?, ?)').run(
     req.user.id, to_user_id, '收到新评价',
-    `您在工程「${project.title}」中收到一条 ${ratingNum} 星评价`, 'system'
+    `您在工程「${project.title}」中收到一条 ${ratingNum} 星评价`, 'system', 'project', contract.project_id
   );
 
   res.json({ id: result.lastInsertRowid, message: '评价成功' });
@@ -78,6 +78,27 @@ router.get('/contract/:contractId', (req, res) => {
     WHERE r.contract_id = ?
   `).all(Number(req.params.contractId));
   res.json(reviews);
+});
+
+// 获取工程相关评价（公开：工程详情页展示双方互评）
+router.get('/project/:projectId', (req, res) => {
+  const projectId = Number(req.params.projectId);
+  if (!Number.isInteger(projectId) || projectId <= 0) {
+    return res.status(400).json({ error: '无效的工程ID' });
+  }
+  const reviews = db.prepare(`
+    SELECT r.id, r.rating, r.comment, r.created_at,
+           r.from_user_id, r.to_user_id,
+           uf.username as from_username, uf.real_name as from_real_name,
+           ut.username as to_username, ut.real_name as to_real_name
+    FROM reviews r
+    JOIN contracts c ON r.contract_id = c.id
+    JOIN users uf ON r.from_user_id = uf.id
+    JOIN users ut ON r.to_user_id = ut.id
+    WHERE c.project_id = ?
+    ORDER BY r.created_at DESC
+  `).all(projectId);
+  res.json({ items: reviews });
 });
 
 module.exports = router;

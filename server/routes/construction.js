@@ -330,4 +330,56 @@ router.post('/files', upload.array('files', 5), (req, res) => {
   res.status(201).json({ message: '文件已上传', count: req.files.length });
 });
 
+// ============ 过程数据导出（结算/纠纷留证） ============
+function escapeCsv(val) {
+  let str = val === null || val === undefined ? '' : String(val);
+  if (/^[=+\-@\t\r]/.test(str)) str = "'" + str; // 防公式注入
+  return `"${str.replace(/"/g, '""')}"`;
+}
+
+function sendCsv(res, rows, filename) {
+  if (!rows || rows.length === 0) return res.status(404).json({ error: '暂无可导出的数据' });
+  const headers = Object.keys(rows[0]);
+  const csv = [
+    '\ufeff' + headers.join(','),
+    ...rows.map(r => headers.map(h => escapeCsv(r[h])).join(','))
+  ].join('\n');
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename=${filename}_${Date.now()}.csv`);
+  res.send(csv);
+}
+
+router.get('/export', (req, res) => {
+  const project = getProject(req, res); if (!project) return;
+  if (resolveRole(project, req.user) === 'viewer') return res.status(403).json({ error: '仅项目参与者可导出施工过程数据' });
+  const type = String(req.query.type || 'logs');
+  const pid = project.id;
+  if (type === 'logs') {
+    sendCsv(res, db.prepare(`
+      SELECT l.log_date as 日期, l.weather as 天气, l.workers_count as 人数, l.content as 施工内容,
+             u.real_name as 记录人, u.username as 记录账号, l.created_at as 记录时间
+      FROM construction_logs l JOIN users u ON l.user_id = u.id
+      WHERE l.project_id = ? ORDER BY l.log_date ASC, l.id ASC`).all(pid), `construction_logs_${pid}`);
+  } else if (type === 'checkins') {
+    sendCsv(res, db.prepare(`
+      SELECT s.checkin_at as 打卡时间, u.real_name as 人员, u.username as 账号,
+             s.latitude as 纬度, s.longitude as 经度, s.address as 定位, s.remark as 备注
+      FROM site_checkins s JOIN users u ON s.user_id = u.id
+      WHERE s.project_id = ? ORDER BY s.checkin_at ASC`).all(pid), `site_checkins_${pid}`);
+  } else if (type === 'materials') {
+    sendCsv(res, db.prepare(`
+      SELECT m.entry_date as 日期, m.name as 材料名称, m.spec as 规格型号, m.qty as 数量, m.unit as 单位,
+             m.amount as 金额, m.supplier as 供应商, u.real_name as 登记人, m.created_at as 登记时间
+      FROM material_entries m JOIN users u ON m.recorded_by = u.id
+      WHERE m.project_id = ? ORDER BY m.entry_date ASC, m.id ASC`).all(pid), `materials_${pid}`);
+  } else if (type === 'boq') {
+    sendCsv(res, db.prepare(`
+      SELECT b.name as 清单项目, b.spec as 规格, b.unit as 单位, b.qty as 工程量, b.unit_price as 单价,
+             ROUND(b.qty * b.unit_price, 2) as 合价, b.remark as 备注, b.created_at as 创建时间
+      FROM boq_items b WHERE b.project_id = ? ORDER BY b.id ASC`).all(pid), `boq_${pid}`);
+  } else {
+    return res.status(400).json({ error: '不支持的导出类型（logs/checkins/materials/boq）' });
+  }
+});
+
 module.exports = router;

@@ -66,6 +66,7 @@ import { useRouter } from 'vue-router'
 import { Search } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '../store'
+import { CATEGORIES } from '../constants'
 import api from '../api'
 import ProjectCard from '../components/ProjectCard.vue'
 
@@ -84,7 +85,7 @@ const heroTitle = computed(() => {
 const filterRef = ref(null)
 const scrollToFilters = () => filterRef.value?.scrollIntoView({ behavior: 'smooth' })
 
-const categories = ['安防监控', '网络布线', '门禁系统', '楼宇对讲', '停车场系统', '广播系统', '综合布线', '其他']
+const categories = CATEGORIES
 const projects = ref([])
 const total = ref(0)
 const page = ref(1)

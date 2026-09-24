@@ -710,6 +710,39 @@ db.exec(`
   }
 });
 
+// 迁移：消息关联对象（点击消息跳转到对应工程/合同）
+['ref_type TEXT', 'ref_id INTEGER'].forEach(colDef => {
+  const [name] = colDef.split(' ');
+  try {
+    db.prepare(`SELECT ${name} FROM messages LIMIT 1`).get();
+  } catch (e) {
+    db.exec(`ALTER TABLE messages ADD COLUMN ${colDef}`);
+  }
+});
+
+// 迁移：工程截止提醒与里程碑提醒去重标记
+try {
+  db.prepare("SELECT deadline_reminded FROM projects LIMIT 1").get();
+} catch (e) {
+  db.exec("ALTER TABLE projects ADD COLUMN deadline_reminded INTEGER DEFAULT 0");
+}
+try {
+  db.prepare("SELECT reminder_sent FROM project_milestones LIMIT 1").get();
+} catch (e) {
+  db.exec("ALTER TABLE project_milestones ADD COLUMN reminder_sent INTEGER DEFAULT 0");
+}
+
+// 迁移：纠纷/质保工单附件（引用工程照片，JSON 数组）
+['attachments TEXT'].forEach(colDef => {
+  ['disputes', 'warranty_tickets'].forEach(table => {
+    try {
+      db.prepare(`SELECT attachments FROM ${table} LIMIT 1`).get();
+    } catch (e) {
+      db.exec(`ALTER TABLE ${table} ADD COLUMN ${colDef}`);
+    }
+  });
+});
+
 // 迁移：实名认证增加身份证校验位标记
 try {
   db.prepare("SELECT id_checksum_valid FROM users LIMIT 1").get();
@@ -858,6 +891,58 @@ try {
   }
 } catch (e) {
   console.error('[迁移] 历史流水补录失败:', e.message);
+}
+
+// 迁移：期初建账——账本启用前的历史余额以 'opening' 类型补录，
+// 使「用户余额合计 == 用户侧流水合计」恒等（对账自检的前提）
+try {
+  const ledgerSql = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='ledger'").get();
+  if (ledgerSql && !/opening/i.test(ledgerSql.sql)) {
+    const rebuildLedger = db.transaction(() => {
+      db.exec(`
+        CREATE TABLE ledger_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER,
+          type TEXT NOT NULL CHECK(type IN ('opening','deposit','withdraw','withdraw_refund','pay_escrow','release_escrow','settlement','commission','retention','retention_release','refund','penalty')),
+          amount REAL NOT NULL,
+          balance_after REAL,
+          ref_type TEXT,
+          ref_id INTEGER,
+          remark TEXT,
+          operator_id INTEGER,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+        INSERT INTO ledger_new (id, user_id, type, amount, balance_after, ref_type, ref_id, remark, operator_id, created_at)
+          SELECT id, user_id, type, amount, balance_after, ref_type, ref_id, remark, operator_id, created_at FROM ledger;
+        DROP TABLE ledger;
+        ALTER TABLE ledger_new RENAME TO ledger;
+        CREATE INDEX IF NOT EXISTS idx_ledger_user ON ledger(user_id, created_at);
+        CREATE INDEX IF NOT EXISTS idx_ledger_type ON ledger(type, created_at);
+      `);
+    });
+    rebuildLedger();
+    console.log('[迁移] ledger 表已支持 opening（期初建账）类型');
+  }
+  const openingPosted = db.prepare("SELECT value FROM settings WHERE key = 'opening_balance_posted'").get();
+  if (!openingPosted) {
+    const diffs = db.prepare(`
+      SELECT u.id, ROUND(u.balance - COALESCE((SELECT SUM(amount) FROM ledger WHERE user_id = u.id), 0), 2) diff
+      FROM users u
+    `).all().filter(r => Math.abs(r.diff) > 0.009);
+    const openingTx = db.transaction(() => {
+      diffs.forEach(r => {
+        db.prepare(`
+          INSERT INTO ledger (user_id, type, amount, balance_after, remark)
+          VALUES (?, 'opening', ?, ?, '期初建账补录（账本系统启用前的历史余额）')
+        `).run(r.id, r.diff, r.diff);
+      });
+    });
+    openingTx();
+    db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('opening_balance_posted', '1')").run();
+    if (diffs.length) console.log(`[迁移] 已为 ${diffs.length} 个用户补录期初建账流水`);
+  }
+} catch (e) {
+  console.error('[迁移] 期初建账失败:', e.message);
 }
 
 module.exports = db;

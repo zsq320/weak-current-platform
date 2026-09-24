@@ -49,13 +49,14 @@ import { useRouter } from 'vue-router'
 import { useUserStore } from '../store'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { checkVerificationWithPrompt } from '../utils/verification'
+import { CATEGORIES } from '../constants'
 import api from '../api'
 
 const router = useRouter()
 const userStore = useUserStore()
 const formRef = ref()
 const loading = ref(false)
-const categories = ['安防监控', '网络布线', '门禁系统', '楼宇对讲', '停车场系统', '广播系统', '综合布线', '其他']
+const categories = CATEGORIES
 
 const form = reactive({ title: '', category: '', description: '', location: '', budget: 0, deadline: '' ,
   site_lat: undefined,

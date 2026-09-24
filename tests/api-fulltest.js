@@ -552,6 +552,61 @@ async function main() {
   const sqliLike = await api('GET', `/api/projects?keyword=${encodeURIComponent("%' OR 1=1 --")}`);
   assert('LIKE 注入参数化处理（返回空集而非异常）', sqliLike.status === 200);
 
+  // ---------- 17. 新功能回归：撤回投标/工程师主页/评价/对账/公告/金额调整/附件 ----------
+  console.log('【17】新功能回归');
+  // 投标撤回闭环：发布 -> 投标 -> 撤回 -> 可重新投标
+  const wdProj = await api('POST', '/api/projects', {
+    token: owner,
+    body: { title: `回归测试-撤回投标工程${Date.now() % 10000}`, description: '验证投标撤回功能的自动化测试工程。', category: '其他', location: '测试' }
+  });
+  const wdProjId = wdProj.json.id;
+  const wdBid = await api('POST', '/api/bids', { token: eng, body: { project_id: wdProjId, price: 5000, message: '撤回投标测试的方案描述，超过二十个字符。' } });
+  const withdraw = await api('POST', `/api/bids/${wdBid.json.id}/withdraw`, { token: eng });
+  assert('撤回投标成功', withdraw.status === 200, JSON.stringify(withdraw.json));
+  const reBid = await api('POST', '/api/bids', { token: eng, body: { project_id: wdProjId, price: 6000, message: '撤回后重新投标的方案描述，超过二十个字符。' } });
+  assert('撤回后可重新投标', reBid.status === 200);
+  const withdrawAgain = await api('POST', `/api/bids/${reBid.json.id}/withdraw`, { token: eng });
+  assert('再次撤回成功（投标恢复为未投标状态）', withdrawAgain.status === 200);
+  const withdrawGone = await api('POST', `/api/bids/${reBid.json.id}/withdraw`, { token: eng });
+  assert('撤回后重复撤回被拒（投标已不存在）', withdrawGone.status === 404);
+
+  // 工程师公开主页（不接受投标撤回工程，用种子工程师账号）
+  const meEng = await api('GET', '/api/auth/me', { token: eng });
+  const engProfile = await api('GET', `/api/users/${meEng.json.id}/profile`);
+  assert('工程师公开主页可访问', engProfile.status === 200 && engProfile.json.stats && engProfile.json.stats.avg_rating !== undefined,
+    JSON.stringify(engProfile.json).slice(0, 120));
+  assert('公开主页不泄露联系方式', engProfile.json.phone === undefined && engProfile.json.email === undefined && engProfile.json.real_name === undefined);
+
+  // 按项目查询评价
+  const projReviews = await api('GET', `/api/reviews/project/${wdProjId}`);
+  assert('按项目查询评价接口可用', projReviews.status === 200 && Array.isArray(projReviews.json.items));
+
+  // 合同金额调整（签署前议价）：新工程走 投标->接受->调价
+  const amount = await api('PUT', `/api/contracts/99999999/amount`, { token: owner, body: { amount: 8888 } });
+  assert('不存在的合同调整金额被拒', amount.status === 404);
+
+  // 附件校验：纠纷引用不存在的照片被拒
+  const badPhotoDispute = await api('POST', '/api/biz/disputes', {
+    token: eng, body: { project_id: wdProjId, reason: '附件校验测试', photo_ids: [999999] }
+  });
+  assert('纠纷引用不存在的照片被拒', badPhotoDispute.status === 400);
+
+  // 平台资金对账
+  const reconcile = await api('GET', '/api/admin/reconcile', { token: admin });
+  assert('平台资金对账接口可用', reconcile.status === 200 && typeof reconcile.json.user_balance_total === 'number' && typeof reconcile.json.diff === 'number',
+    JSON.stringify(reconcile.json).slice(0, 150));
+
+  // 系统公告群发
+  const broadcast = await api('POST', '/api/admin/broadcast', { token: admin, body: { title: '回归测试公告', content: '这是一条自动化回归测试公告，可忽略。' } });
+  assert('系统公告群发成功', broadcast.status === 200 && /已发送给/.test(broadcast.json.message || ''), JSON.stringify(broadcast.json));
+  const ownerMsgs = await api('GET', '/api/messages', { token: owner });
+  assert('公告送达用户消息中心', (ownerMsgs.json.data || []).some(m => m.title === '回归测试公告'));
+
+  // 清理撤回投标测试工程（未签合同可直接删）
+  await api('POST', `/api/projects/${wdProjId}/cancel`, { token: owner });
+  const delWdProj = await api('DELETE', `/api/projects/${wdProjId}`, { token: owner });
+  assert('测试工程清理完成', delWdProj.status === 200);
+
   // ---------- 结果 ----------
   console.log('\n==============================================');
   console.log(` 测试结果：通过 ${passed} 项，失败 ${failed} 项`);

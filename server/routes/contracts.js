@@ -19,6 +19,7 @@ const { authMiddleware } = require('../middleware/auth');
 const { logAudit } = require('../middleware/audit');
 const bcryptjs = require('bcryptjs');
 const { postLedger, recordPlatformIncome, getNumberSetting } = require('../utils/ledger');
+const { notifyUserEmail } = require('../utils/notifyEmail');
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -148,6 +149,48 @@ router.put('/:id/content', (req, res) => {
   res.json({ message: '合同正文已更新' });
 });
 
+// 调整合同金额（仅甲方，双方均未签署且未托管时；签约前议价）
+router.put('/:id/amount', (req, res) => {
+  const contract = db.prepare('SELECT * FROM contracts WHERE id = ?').get(Number(req.params.id));
+  if (!contract) return res.status(404).json({ error: '合同不存在' });
+  if (contract.owner_id !== req.user.id) return res.status(403).json({ error: '只有甲方可以调整合同金额' });
+  if (contract.status !== 'active') return res.status(400).json({ error: '合同状态不允许调整金额' });
+  if (contract.owner_signed_at || contract.engineer_signed_at) {
+    return res.status(400).json({ error: '合同已进入签署流程，不能调整金额；如需变更请终止后重新签订' });
+  }
+  if (contract.escrow_status === 'frozen') return res.status(400).json({ error: '工程款已托管，不能调整金额' });
+
+  const amount = Math.round(Number(req.body.amount) * 100) / 100;
+  if (!Number.isFinite(amount) || amount <= 0 || amount > 99999999) {
+    return res.status(400).json({ error: '合同金额不合法' });
+  }
+  if (amount === contract.amount) return res.json({ message: '金额未变化' });
+
+  const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(contract.project_id);
+  const updateTx = db.transaction(() => {
+    // 正文若仍为自动生成的模板（未被人工编辑过），随金额同步重新生成，避免正文与金额不一致
+    const oldTemplate = buildContractContent(contract, project);
+    if (contract.content && contract.content === oldTemplate) {
+      const content = buildContractContent({ ...contract, amount }, project);
+      const version = (contract.content_version || 1) + 1;
+      db.prepare('UPDATE contracts SET amount = ?, content = ?, content_version = ?, content_hash = ? WHERE id = ?')
+        .run(amount, content, version, contentHash(content, version), contract.id);
+    } else {
+      db.prepare('UPDATE contracts SET amount = ? WHERE id = ?').run(amount, contract.id);
+    }
+    db.prepare('INSERT INTO messages (from_user_id, to_user_id, title, content, type, ref_type, ref_id) VALUES (?, ?, ?, ?, ?, ?, ?)').run(
+      req.user.id, contract.engineer_id, '合同金额已调整',
+      `工程「${project.title}」的合同金额已调整为 ${amount} 元，请知悉后再签署合同。`, 'contract', 'contract', contract.id
+    );
+  });
+  updateTx();
+
+  notifyUserEmail(contract.engineer_id, '合同金额已调整',
+    `工程「${project.title}」的合同金额已由甲方调整为 ${amount} 元，请在合同管理中确认后再签署。`);
+  logAudit(req.user.id, 'update_contract_amount', 'contract', contract.id, { from: contract.amount, to: amount }, req.ip);
+  res.json({ message: '合同金额已调整' });
+});
+
 // 签署合同（需登录密码确认）
 router.post('/:id/sign', (req, res) => {
   const contract = db.prepare('SELECT * FROM contracts WHERE id = ?').get(Number(req.params.id));
@@ -211,10 +254,14 @@ router.post('/:id/sign', (req, res) => {
   }
 
   const otherId = role === 'owner' ? contract.engineer_id : contract.owner_id;
-  db.prepare('INSERT INTO messages (from_user_id, to_user_id, title, content, type) VALUES (?, ?, ?, ?, ?)').run(
+  db.prepare('INSERT INTO messages (from_user_id, to_user_id, title, content, type, ref_type, ref_id) VALUES (?, ?, ?, ?, ?, ?, ?)').run(
     req.user.id, otherId, '合同签署通知',
-    role === 'owner' ? '甲方已签署合同，请您及时在合同管理中确认签署。' : '乙方已签署合同。', 'contract'
+    role === 'owner' ? '甲方已签署合同，请您及时在合同管理中确认签署。' : '乙方已签署合同。', 'contract', 'contract', contract.id
   );
+  notifyUserEmail(otherId, role === 'owner' ? '甲方已签署合同' : '乙方已签署合同',
+    role === 'owner'
+      ? '甲方已签署合同，请您及时登录平台，在合同管理中确认签署。'
+      : '乙方已签署合同，请登录平台在合同管理中查看签署进展。');
   logAudit(req.user.id, 'sign_contract', 'contract', contract.id, { role, escrow: !!escrow }, req.ip);
   res.json({ message: '签署成功', content_hash: hash });
 });
@@ -242,6 +289,7 @@ router.post('/:id/complete', (req, res) => {
   const commission = Math.round(contract.amount * commissionRate) / 100;
   const retention = Math.round(contract.amount * retentionRate) / 100;
   const toEngineer = Math.round((contract.amount - commission - retention) * 100) / 100;
+  const projectTitle = db.prepare('SELECT title FROM projects WHERE id = ?').get(contract.project_id)?.title || '';
 
   const settleTx = db.transaction(() => {
     // 托管已冻结：直接释放；否则从甲方余额现扣
@@ -262,9 +310,9 @@ router.post('/:id/complete', (req, res) => {
     db.prepare("UPDATE projects SET status = 'completed' WHERE id = ?").run(contract.project_id);
 
     const project = db.prepare('SELECT title FROM projects WHERE id = ?').get(contract.project_id);
-    db.prepare('INSERT INTO messages (from_user_id, to_user_id, title, content, type) VALUES (?, ?, ?, ?, ?)').run(
+    db.prepare('INSERT INTO messages (from_user_id, to_user_id, title, content, type, ref_type, ref_id) VALUES (?, ?, ?, ?, ?, ?, ?)').run(
       req.user.id, contract.engineer_id, '工程已完工结算',
-      `工程「${project.title}」已确认完工结算，${toEngineer} 元已到账（另有 ${retention} 元质保金于 ${warrantyMonths} 个月后释放）。`, 'contract'
+      `工程「${project.title}」已确认完工结算，${toEngineer} 元已到账（另有 ${retention} 元质保金于 ${warrantyMonths} 个月后释放）。`, 'contract', 'contract', contract.id
     );
   });
 
@@ -275,6 +323,9 @@ router.post('/:id/complete', (req, res) => {
     console.error('合同结算失败:', err);
     return res.status(500).json({ error: '结算失败，请稍后重试' });
   }
+
+  notifyUserEmail(contract.engineer_id, '工程款已结算到账',
+    `工程「${projectTitle}」已确认完工结算，${toEngineer} 元已到账（另有 ${retention} 元质保金将于 ${warrantyMonths} 个月后释放）。`);
 
   logAudit(req.user.id, 'complete_contract', 'contract', contract.id, { commission, retention }, req.ip);
   res.json({ message: '工程已确认完工，款项已结算', commission, retention, to_engineer: toEngineer });
@@ -296,8 +347,8 @@ router.post('/:id/terminate', (req, res) => {
     db.prepare("UPDATE contracts SET status = 'terminated', escrow_status = CASE WHEN escrow_status = 'frozen' THEN 'refunded' ELSE escrow_status END WHERE id = ?").run(contract.id);
     db.prepare("UPDATE projects SET status = 'cancelled' WHERE id = ?").run(contract.project_id);
     const otherUserId = req.user.id === contract.owner_id ? contract.engineer_id : contract.owner_id;
-    db.prepare('INSERT INTO messages (from_user_id, to_user_id, title, content, type) VALUES (?, ?, ?, ?, ?)').run(
-      req.user.id, otherUserId, '合同已终止', '合同已被终止，如有托管资金已退回甲方账户。', 'contract'
+    db.prepare('INSERT INTO messages (from_user_id, to_user_id, title, content, type, ref_type, ref_id) VALUES (?, ?, ?, ?, ?, ?, ?)').run(
+      req.user.id, otherUserId, '合同已终止', '合同已被终止，如有托管资金已退回甲方账户。', 'contract', 'contract', contract.id
     );
   });
 

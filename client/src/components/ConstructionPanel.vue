@@ -12,6 +12,7 @@
         </el-space>
         <el-input v-model="logForm.content" type="textarea" :rows="2" placeholder="今日施工内容" style="margin-top: 8px" />
         <el-button type="primary" size="small" style="margin-top: 8px" @click="addLog">提交日志</el-button>
+        <el-button size="small" style="margin-top: 8px; margin-left: 8px" :loading="exportingType === 'logs'" @click="exportCsv('logs')">导出CSV</el-button>
       </div>
       <el-timeline>
         <el-timeline-item v-for="l in logs" :key="l.id" :timestamp="`${l.log_date} · ${l.real_name || l.username} · ${l.workers_count || 0}人 · ${l.weather || '-'}`">
@@ -27,6 +28,7 @@
         <el-button type="primary" :loading="checkinLoading" @click="doCheckin">
           <el-icon style="margin-right: 4px"><Aim /></el-icon>现场定位打卡
         </el-button>
+        <el-button size="small" style="margin-left: 8px" :loading="exportingType === 'checkins'" @click="exportCsv('checkins')">导出CSV</el-button>
       </div>
       <el-table :data="checkins" size="small" max-height="360">
         <el-table-column prop="checkin_at" label="时间" width="170" />
@@ -102,6 +104,7 @@
           <el-input v-model="materialForm.supplier" placeholder="供应商" style="width: 120px" />
         </el-space>
         <el-button type="primary" size="small" style="margin-top: 6px" @click="addMaterial">登记进场</el-button>
+        <el-button size="small" style="margin-top: 6px; margin-left: 8px" :loading="exportingType === 'materials'" @click="exportCsv('materials')">导出CSV</el-button>
       </div>
       <el-table :data="materials" size="small" show-summary :summary-method="sumMaterial">
         <el-table-column prop="entry_date" label="日期" width="100" />
@@ -127,6 +130,7 @@
           <el-input-number v-model="boqForm.unit_price" :min="0" :step="10" placeholder="单价" style="width: 130px" />
         </el-space>
         <el-button type="primary" size="small" style="margin-top: 6px" @click="addBoq">添加清单项</el-button>
+        <el-button size="small" style="margin-top: 6px; margin-left: 8px" :loading="exportingType === 'boq'" @click="exportCsv('boq')">导出CSV</el-button>
       </div>
       <el-table :data="boq" size="small" show-summary :summary-method="sumBoq">
         <el-table-column prop="name" label="项目" min-width="150" />
@@ -305,6 +309,29 @@ const onFileUploaded = (resp) => {
   fetchAll()
 }
 const onUploadError = () => ElMessage.error('上传失败，请检查文件类型与大小（≤20MB）')
+
+// 过程数据导出 CSV（结算/纠纷留证）
+const exportingType = ref('')
+const exportCsv = async (type) => {
+  exportingType.value = type
+  try {
+    const res = await fetch(`/api/projects/${props.projectId}/construction/export?type=${type}`, {
+      headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` }
+    })
+    if (!res.ok) throw new Error('export failed')
+    const blob = await res.blob()
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${type}_${props.projectId}_${Date.now()}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  } catch (e) {
+    ElMessage.error('导出失败（可能暂无数据）')
+  } finally {
+    exportingType.value = ''
+  }
+}
 
 const addHidden = async () => {
   if (!hiddenForm.name.trim()) return ElMessage.warning('请填写部位名称')

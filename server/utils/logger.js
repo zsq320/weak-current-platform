@@ -11,6 +11,24 @@ const path = require('path');
 const logsDir = path.join(__dirname, '..', '..', 'logs');
 if (!fs.existsSync(logsDir)) fs.mkdirSync(logsDir, { recursive: true });
 
+// 日志保留天数：每日清理一次过期日志，防止磁盘被无限占用
+const LOG_RETENTION_DAYS = 30;
+function cleanupOldLogs() {
+  try {
+    const cutoff = Date.now() - LOG_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+    fs.readdirSync(logsDir)
+      .filter(f => /^app-\d{8}\.log$/.test(f))
+      .forEach(f => {
+        const p = path.join(logsDir, f);
+        if (fs.statSync(p).mtimeMs < cutoff) {
+          fs.unlinkSync(p);
+        }
+      });
+  } catch (e) { /* 清理失败不影响业务 */ }
+}
+cleanupOldLogs();
+setInterval(cleanupOldLogs, 24 * 60 * 60 * 1000);
+
 function logFile() {
   const day = new Date().toISOString().slice(0, 10).replace(/-/g, '');
   return path.join(logsDir, `app-${day}.log`);

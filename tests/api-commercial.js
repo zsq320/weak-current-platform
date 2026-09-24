@@ -61,11 +61,13 @@ async function login(username, password) {
   // ---------- 2. 提现：申请冻结 -> 驳回退回 ----------
   console.log('【2】提现闭环');
   const balBefore = (await api('GET', '/api/auth/me', { token: eng })).json.balance;
-  const wd = await api('POST', '/api/finance/withdrawals', { token: eng, body: { amount: 100, bank_info: '6222020200112233445 测试银行 李工程' } });
+  const wd = await api('POST', '/api/finance/withdrawals', { token: eng, body: { amount: 100, bank_info: '6222020200112233445 测试银行 李工程', password: '123456' } });
   assert('提现申请成功', wd.status === 201);
   const balFrozen = (await api('GET', '/api/auth/me', { token: eng })).json.balance;
   assert('提现冻结余额', Math.abs(balFrozen - (balBefore - 100)) < 0.01, `${balFrozen} vs ${balBefore - 100}`);
-  const overspend = await api('POST', '/api/finance/withdrawals', { token: eng, body: { amount: 99999999, bank_info: 'x' } });
+  const noPwd = await api('POST', '/api/finance/withdrawals', { token: eng, body: { amount: 10, bank_info: 'x' } });
+  assert('提现缺少密码被拒', noPwd.status === 400);
+  const overspend = await api('POST', '/api/finance/withdrawals', { token: eng, body: { amount: 99999999, bank_info: 'x', password: '123456' } });
   assert('超额提现被拒', overspend.status === 400);
 
   // 管理员驳回 -> 退回

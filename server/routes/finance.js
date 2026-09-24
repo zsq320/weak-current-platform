@@ -14,6 +14,7 @@
 const express = require('express');
 const crypto = require('crypto');
 const db = require('../db');
+const bcryptjs = require('bcryptjs');
 const { authMiddleware } = require('../middleware/auth');
 const { logAudit } = require('../middleware/audit');
 const { postLedger, getSetting, getNumberSetting } = require('../utils/ledger');
@@ -117,13 +118,20 @@ router.get('/platform-income', (req, res) => {
   res.json({ items: rows });
 });
 
-/** 申请提现（余额先冻结，管理员审核通过打款 / 驳回退回） */
+/** 申请提现（需登录密码二次确认；余额先冻结，管理员审核通过打款 / 驳回退回） */
 router.post('/withdrawals', (req, res) => {
   const amount = Math.round(Number(req.body.amount) * 100) / 100;
   const bankInfo = String(req.body.bank_info || '').trim().slice(0, 300);
+  const { password } = req.body;
   if (!Number.isFinite(amount) || amount <= 0) return res.status(400).json({ error: '提现金额无效' });
   if (amount < 1) return res.status(400).json({ error: '单次提现至少 1 元' });
   if (!bankInfo) return res.status(400).json({ error: '请填写收款银行卡/账户信息' });
+  // 资金安全：提现必须验证登录密码，防止会话被盗后资金被转走
+  if (!password) return res.status(400).json({ error: '请输入登录密码确认提现' });
+  const user = db.prepare('SELECT password_hash FROM users WHERE id = ?').get(req.user.id);
+  if (!user || !bcryptjs.compareSync(String(password), user.password_hash)) {
+    return res.status(400).json({ error: '登录密码不正确' });
+  }
 
   const applyWithdraw = db.transaction(() => {
     postLedger({

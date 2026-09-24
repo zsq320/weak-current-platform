@@ -153,6 +153,7 @@ app.use('/api/messages', apiLimiter, require('./routes/messages'));
 app.use('/api/dashboard', apiLimiter, require('./routes/dashboard'));
 app.use('/api/finance', sensitiveLimiter, require('./routes/finance'));
 app.use('/api/biz', apiLimiter, require('./routes/biz'));
+app.use('/api/users', apiLimiter, require('./routes/users'));
 app.use('/api/notify', require('./routes/notify'));
 app.use('/api/admin', sensitiveLimiter, require('./routes/admin'));
 
@@ -191,6 +192,42 @@ function recordPlatformIncomeRefund(c) {
 }
 setInterval(releaseDueRetentions, 60 * 60 * 1000); // 每小时检查一次
 releaseDueRetentions();
+
+// ============ 截止提醒：工程 deadline 与里程碑到期前 3 天站内提醒（每日一次，标记去重） ============
+function sendDeadlineReminders() {
+  try {
+    const insertMsg = db.prepare('INSERT INTO messages (from_user_id, to_user_id, title, content, type, ref_type, ref_id) VALUES (?, ?, ?, ?, ?, ?, ?)');
+    // 工程截止提醒（招标中/进行中，3 天内截止，未提醒过）
+    const dueProjects = db.prepare(`
+      SELECT p.id, p.title, p.deadline, p.user_id FROM projects p
+      WHERE p.status IN ('bidding', 'in_progress') AND p.deadline IS NOT NULL AND p.deadline_reminded = 0
+        AND p.deadline BETWEEN date('now') AND date('now', '+3 days')
+    `).all();
+    dueProjects.forEach(p => {
+      insertMsg.run(null, p.user_id, '工程截止提醒',
+        `您的工程「${p.title}」将于 ${String(p.deadline).slice(0, 10)} 截止，请及时处理投标或推进工程。`, 'system', 'project', p.id);
+      db.prepare('UPDATE projects SET deadline_reminded = 1 WHERE id = ?').run(p.id);
+    });
+    // 里程碑到期提醒（未完成，3 天内到期，未提醒过）
+    const dueMilestones = db.prepare(`
+      SELECT m.id, m.name, m.due_date, m.project_id, p.title as project_title, p.user_id
+      FROM project_milestones m JOIN projects p ON m.project_id = p.id
+      WHERE m.status != 'completed' AND m.due_date IS NOT NULL AND m.reminder_sent = 0
+        AND m.due_date BETWEEN date('now') AND date('now', '+3 days')
+    `).all();
+    dueMilestones.forEach(m => {
+      insertMsg.run(null, m.user_id, '里程碑到期提醒',
+        `工程「${m.project_title}」的里程碑「${m.name}」将于 ${String(m.due_date).slice(0, 10)} 到期，请关注进度。`, 'system', 'project', m.project_id);
+      db.prepare('UPDATE project_milestones SET reminder_sent = 1 WHERE id = ?').run(m.id);
+    });
+    const n = dueProjects.length + dueMilestones.length;
+    if (n > 0) console.log(`[提醒] 已发送 ${dueProjects.length} 条工程截止提醒、${dueMilestones.length} 条里程碑到期提醒`);
+  } catch (err) {
+    console.error('[提醒] 截止提醒任务失败:', err);
+  }
+}
+sendDeadlineReminders();
+setInterval(sendDeadlineReminders, 24 * 60 * 60 * 1000);
 
 // API 未匹配路径返回 JSON（避免被 SPA 兜底成 HTML，前端报错难排查）
 app.all('/api/*', (req, res) => {

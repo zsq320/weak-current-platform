@@ -127,6 +127,9 @@
         <el-form-item label="收款账户">
           <el-input v-model="withdrawBank" type="textarea" :rows="2" placeholder="银行卡号 + 开户行 + 户名" />
         </el-form-item>
+        <el-form-item label="登录密码">
+          <el-input v-model="withdrawPassword" type="password" show-password placeholder="输入登录密码确认提现" />
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="withdrawDialog = false">取消</el-button>
@@ -187,13 +190,14 @@ const paying = ref(false)
 const withdrawDialog = ref(false)
 const withdrawAmount = ref(100)
 const withdrawBank = ref('')
+const withdrawPassword = ref('')
 const withdrawing = ref(false)
 
 const invoiceDialog = ref(false)
 const invoiceForm = reactive({ title_type: 'company', title: '', tax_no: '', amount: 1000, invoice_type: 'normal' })
 
 const typeText = (t) => ({
-  deposit: '充值', withdraw: '提现冻结', withdraw_refund: '提现退回',
+  opening: '期初建账', deposit: '充值', withdraw: '提现冻结', withdraw_refund: '提现退回',
   pay_escrow: '工程款托管', release_escrow: '托管释放', settlement: '结算',
   refund: '退款', retention_release: '质保金释放', penalty: '罚扣'
 }[t] || t)
@@ -233,14 +237,20 @@ const doDeposit = async () => {
 
 const openWithdraw = () => {
   withdrawAmount.value = Math.min(100, wallet.value.balance || 0)
+  withdrawPassword.value = ''
   withdrawDialog.value = true
 }
 
 const doWithdraw = async () => {
   if (!withdrawBank.value.trim()) return ElMessage.warning('请填写收款账户信息')
+  if (!withdrawPassword.value) return ElMessage.warning('请输入登录密码确认提现')
   withdrawing.value = true
   try {
-    await api.post('/finance/withdrawals', { amount: withdrawAmount.value, bank_info: withdrawBank.value })
+    await api.post('/finance/withdrawals', {
+      amount: withdrawAmount.value,
+      bank_info: withdrawBank.value,
+      password: withdrawPassword.value
+    })
     ElMessage.success('提现申请已提交')
     withdrawDialog.value = false
     fetchWallet()

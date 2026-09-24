@@ -12,6 +12,7 @@ const db = require('../db');
 const { authMiddleware } = require('../middleware/auth');
 const { logAudit } = require('../middleware/audit');
 const { postLedger, recordPlatformIncome, getSetting, setSetting, getNumberSetting } = require('../utils/ledger');
+const { notifyUserEmail } = require('../utils/notifyEmail');
 
 const router = express.Router();
 
@@ -211,9 +212,9 @@ router.post('/projects/:id/cancel', (req, res) => {
         postLedger({ userId: c.owner_id, amount: c.amount, type: 'release_escrow', refType: 'contract', refId: c.id, remark: `工程被管理员强制取消，托管资金退回（合同#${c.id}）` });
       }
       db.prepare("UPDATE contracts SET status = 'terminated', escrow_status = CASE WHEN escrow_status = 'frozen' THEN 'refunded' ELSE escrow_status END WHERE id = ?").run(c.id);
-      insertMsg.run(req.user.id, c.engineer_id, '合同已随工程取消而终止', `您在工程「${project.title}」中的合同已被管理员强制取消并终止${c.escrow_status === 'frozen' ? '，托管资金已退回甲方账户' : '。'}。`, 'contract');
+      insertMsg.run(req.user.id, c.engineer_id, '合同已随工程取消而终止', `您在工程「${project.title}」中的合同已被管理员强制取消并终止${c.escrow_status === 'frozen' ? '，托管资金已退回甲方账户' : '。'}。`, 'contract', 'project', projectId);
     });
-    insertMsg.run(req.user.id, project.user_id, '工程已被管理员取消', `您的工程「${project.title}」已被管理员强制取消`, 'system');
+    insertMsg.run(req.user.id, project.user_id, '工程已被管理员取消', `您的工程「${project.title}」已被管理员强制取消`, 'system', 'project', projectId);
   });
 
   try {
@@ -377,10 +378,16 @@ router.post('/withdrawals/:id/process', (req, res) => {
       db.prepare("UPDATE withdrawal_requests SET status = 'paid', processed_by = ?, processed_at = CURRENT_TIMESTAMP WHERE id = ?")
         .run(req.user.id, wr.id);
       recordPlatformIncome({ type: 'withdraw', amount: wr.amount, refType: 'withdrawal', refId: wr.id, remark: '提现打款给用户#' + wr.user_id });
+      db.prepare('INSERT INTO messages (from_user_id, to_user_id, title, content, type) VALUES (?, ?, ?, ?, ?)').run(
+        req.user.id, wr.user_id, '提现已打款', `您的提现申请 #${wr.id}（${wr.amount} 元）已完成打款，请查收银行账户。`, 'system'
+      );
     } else {
       postLedger({ userId: wr.user_id, amount: wr.amount, type: 'withdraw_refund', refType: 'withdrawal', refId: wr.id, remark: '提现被驳回，余额退回：' + String(reject_reason).trim(), operatorId: req.user.id });
       db.prepare("UPDATE withdrawal_requests SET status = 'rejected', reject_reason = ?, processed_by = ?, processed_at = CURRENT_TIMESTAMP WHERE id = ?")
         .run(String(reject_reason).trim(), req.user.id, wr.id);
+      db.prepare('INSERT INTO messages (from_user_id, to_user_id, title, content, type) VALUES (?, ?, ?, ?, ?)').run(
+        req.user.id, wr.user_id, '提现申请被驳回', `您的提现申请 #${wr.id} 被驳回：${String(reject_reason).trim()}。款项已退回账户余额。`, 'system'
+      );
     }
   });
 
@@ -389,6 +396,10 @@ router.post('/withdrawals/:id/process', (req, res) => {
   } catch (err) {
     return res.status(500).json({ error: err.message || '处理失败' });
   }
+  notifyUserEmail(wr.user_id, action === 'approve' ? '提现已打款' : '提现申请被驳回',
+    action === 'approve'
+      ? `您的提现申请 #${wr.id}（${wr.amount} 元）已完成打款，请查收银行账户。`
+      : `您的提现申请 #${wr.id} 被驳回：${String(reject_reason).trim()}。款项已退回账户余额。`);
   logAudit(req.user.id, 'process_withdrawal', 'withdrawal', wr.id, { action }, req.ip);
   res.json({ message: action === 'approve' ? '已确认打款' : '已驳回并退回余额' });
 });
@@ -553,6 +564,48 @@ router.get('/reports/ledger.csv', (req, res) => {
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
   res.setHeader('Content-Disposition', 'attachment; filename="ledger-' + start + '-to-' + end + '.csv"');
   res.send('\ufeff' + csvLines.join('\n'));
+});
+
+// 系统公告：给全体正常用户群发站内消息
+router.post('/broadcast', (req, res) => {
+  const { title, content } = req.body;
+  const t = String(title || '').trim();
+  const c = String(content || '').trim();
+  if (!t || !c) return res.status(400).json({ error: '请填写公告标题与内容' });
+  if (t.length > 100) return res.status(400).json({ error: '标题不能超过100字符' });
+  if (c.length > 2000) return res.status(400).json({ error: '内容不能超过2000字符' });
+
+  const users = db.prepare("SELECT id FROM users WHERE is_disabled = 0 AND role IN ('user', 'engineer')").all();
+  const insertMsg = db.prepare('INSERT INTO messages (from_user_id, to_user_id, title, content, type) VALUES (?, ?, ?, ?, ?)');
+  const broadcastTx = db.transaction(() => {
+    users.forEach(u => insertMsg.run(req.user.id, u.id, t, c, 'system'));
+  });
+  broadcastTx();
+
+  logAudit(req.user.id, 'broadcast', 'message', null, { title: t, recipients: users.length }, req.ip);
+  res.json({ message: `公告已发送给 ${users.length} 位用户` });
+});
+
+// 平台资金对账自检：余额合计 vs 账本流水合计，差异非零说明存在账实不符
+router.get('/reconcile', (req, res) => {
+  const userBalanceTotal = db.prepare('SELECT COALESCE(SUM(balance), 0) t FROM users').get().t;
+  const ledgerUserTotal = db.prepare('SELECT COALESCE(SUM(amount), 0) t FROM ledger WHERE user_id IS NOT NULL').get().t;
+  const openingTotal = db.prepare("SELECT COALESCE(SUM(amount), 0) t FROM ledger WHERE user_id IS NOT NULL AND type = 'opening'").get().t;
+  const platformIncomeTotal = db.prepare('SELECT COALESCE(SUM(amount), 0) t FROM ledger WHERE user_id IS NULL').get().t;
+  const depositsTotal = db.prepare("SELECT COALESCE(SUM(amount), 0) t FROM ledger WHERE user_id IS NOT NULL AND type = 'deposit'").get().t;
+  const withdrawalsPaidTotal = db.prepare("SELECT COALESCE(SUM(amount), 0) t FROM ledger WHERE user_id IS NULL AND type = 'withdraw'").get().t;
+  // 用户余额与用户侧流水应严格相等（每一笔余额变动都经由账本）；期初建账行不计入差额
+  const diff = Math.round((userBalanceTotal - ledgerUserTotal) * 100) / 100;
+  res.json({
+    user_balance_total: Math.round(userBalanceTotal * 100) / 100,
+    ledger_user_total: Math.round(ledgerUserTotal * 100) / 100,
+    diff,
+    consistent: diff === 0,
+    opening_total: Math.round(openingTotal * 100) / 100,
+    platform_income_total: Math.round(platformIncomeTotal * 100) / 100,
+    deposits_total: Math.round(depositsTotal * 100) / 100,
+    withdrawals_paid_total: Math.round(withdrawalsPaidTotal * 100) / 100
+  });
 });
 
 // 数据库备份

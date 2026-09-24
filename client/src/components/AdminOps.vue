@@ -39,6 +39,17 @@
         <el-table-column prop="reporter_name" label="投诉人" width="100" />
         <el-table-column prop="against_name" label="被投诉方" width="100" />
         <el-table-column prop="reason" label="事由" min-width="130" show-overflow-tooltip />
+        <el-table-column label="附件" width="120">
+          <template #default="{ row }">
+            <div v-if="parsePhotos(row.attachments).length" style="display: flex; gap: 4px">
+              <el-image v-for="(p, i) in parsePhotos(row.attachments).slice(0, 3)" :key="i"
+                :src="withToken(p.path)" :preview-src-list="parsePhotos(row.attachments).map(x => withToken(x.path))" :initial-index="i"
+                fit="cover" style="width: 32px; height: 32px; border-radius: 4px" />
+              <span v-if="parsePhotos(row.attachments).length > 3" class="more-count">+{{ parsePhotos(row.attachments).length - 3 }}</span>
+            </div>
+            <span v-else style="color: var(--ink-400); font-size: 12px">-</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="status" label="状态" width="90">
           <template #default="{ row }">
             <el-tag size="small" :type="{ open: 'danger', arbitrating: 'warning', resolved: 'success', closed: 'info' }[row.status]">
@@ -56,6 +67,37 @@
         </el-table-column>
       </el-table>
       <el-empty v-if="disputes.length === 0" description="暂无纠纷工单" :image-size="60" />
+    </el-tab-pane>
+
+    <!-- 质保工单 -->
+    <el-tab-pane label="质保工单" name="warranties" lazy>
+      <el-table :data="warranties" size="small">
+        <el-table-column prop="id" label="ID" width="60" />
+        <el-table-column prop="project_title" label="工程" min-width="150" show-overflow-tooltip />
+        <el-table-column prop="reporter_name" label="报修人" width="100" />
+        <el-table-column prop="title" label="标题" min-width="140" show-overflow-tooltip />
+        <el-table-column prop="description" label="描述" min-width="140" show-overflow-tooltip />
+        <el-table-column label="附件" width="120">
+          <template #default="{ row }">
+            <div v-if="parsePhotos(row.attachments).length" style="display: flex; gap: 4px">
+              <el-image v-for="(p, i) in parsePhotos(row.attachments).slice(0, 3)" :key="i"
+                :src="withToken(p.path)" :preview-src-list="parsePhotos(row.attachments).map(x => withToken(x.path))" :initial-index="i"
+                fit="cover" style="width: 32px; height: 32px; border-radius: 4px" />
+              <span v-if="parsePhotos(row.attachments).length > 3" class="more-count">+{{ parsePhotos(row.attachments).length - 3 }}</span>
+            </div>
+            <span v-else style="color: var(--ink-400); font-size: 12px">-</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="status" label="状态" width="90">
+          <template #default="{ row }">
+            <el-tag size="small" :type="{ open: 'warning', processing: 'warning', resolved: 'success', closed: 'info' }[row.status]">
+              {{ { open: '待接单', processing: '维修中', resolved: '待确认', closed: '已关闭' }[row.status] }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="created_at" label="创建时间" width="170" />
+      </el-table>
+      <el-empty v-if="warranties.length === 0" description="暂无质保工单" :image-size="60" />
     </el-tab-pane>
 
     <!-- 发票处理 -->
@@ -167,10 +209,48 @@
           <el-button type="primary" @click="saveSettings">保存设置</el-button>
         </el-form-item>
       </el-form>
+
+      <el-card style="max-width: 560px; margin-top: 8px">
+        <template #header>系统公告（群发给全体用户）</template>
+        <el-form label-width="70px">
+          <el-form-item label="标题">
+            <el-input v-model="broadcastForm.title" maxlength="100" show-word-limit placeholder="公告标题" />
+          </el-form-item>
+          <el-form-item label="内容">
+            <el-input v-model="broadcastForm.content" type="textarea" :rows="4" maxlength="2000" show-word-limit placeholder="公告内容，将以站内消息发送给全部用户" />
+          </el-form-item>
+          <el-form-item>
+            <el-button type="primary" :loading="broadcasting" @click="sendBroadcast">发送公告</el-button>
+          </el-form-item>
+        </el-form>
+      </el-card>
     </el-tab-pane>
 
     <!-- 对账与备份 -->
     <el-tab-pane label="对账与备份" name="reports">
+      <el-card style="margin-bottom: 16px">
+        <template #header>
+          <div style="display: flex; justify-content: space-between; align-items: center">
+            <span>平台资金对账自检</span>
+            <el-button type="primary" size="small" :loading="reconciling" @click="runReconcile">立即对账</el-button>
+          </div>
+        </template>
+        <el-descriptions v-if="reconcile" :column="2" border size="small">
+          <el-descriptions-item label="用户余额合计">¥{{ reconcile.user_balance_total?.toLocaleString() }}</el-descriptions-item>
+          <el-descriptions-item label="用户侧流水合计">¥{{ reconcile.ledger_user_total?.toLocaleString() }}</el-descriptions-item>
+          <el-descriptions-item label="差额">
+            <span :style="{ color: reconcile.consistent ? 'var(--success-600)' : 'var(--danger-600)', fontWeight: 700 }">
+              ¥{{ reconcile.diff }} {{ reconcile.consistent ? '（账实相符）' : '（不符，需人工核查）' }}
+            </span>
+          </el-descriptions-item>
+          <el-descriptions-item label="平台入账合计">¥{{ reconcile.platform_income_total?.toLocaleString() }}</el-descriptions-item>
+          <el-descriptions-item label="累计充值（流水）">¥{{ reconcile.deposits_total?.toLocaleString() }}</el-descriptions-item>
+          <el-descriptions-item label="累计提现打款">¥{{ reconcile.withdrawals_paid_total?.toLocaleString() }}</el-descriptions-item>
+          <el-descriptions-item label="期初建账合计">¥{{ reconcile.opening_total?.toLocaleString() }}</el-descriptions-item>
+        </el-descriptions>
+        <el-empty v-else description="点击「立即对账」校验用户余额与资金流水是否一致" :image-size="50" />
+      </el-card>
+
       <el-card style="margin-bottom: 16px">
         <template #header>平台入账汇总</template>
         <el-table :data="platformIncome" size="small">
@@ -209,6 +289,7 @@ import api from '../api'
 const subTab = ref('withdrawals')
 const withdrawals = ref([])
 const disputes = ref([])
+const warranties = ref([])
 const invoices = ref([])
 const companies = ref([])
 const appeals = ref([])
@@ -219,16 +300,56 @@ const settingsForm = reactive({
   commission_rate: 5, retention_rate: 5, warranty_months: 12,
   require_final_acceptance: '0', require_both_signatures: '0'
 })
+const broadcastForm = reactive({ title: '', content: '' })
+const broadcasting = ref(false)
+const reconcile = ref(null)
+const reconciling = ref(false)
+
+// 附件 JSON 解析 + 带令牌的图片地址
+const parsePhotos = (json) => {
+  try { return json ? JSON.parse(json) : [] } catch (e) { return [] }
+}
+const withToken = (p) => `${p}?token=${encodeURIComponent(localStorage.getItem('accessToken') || '')}`
+
+const runReconcile = async () => {
+  reconciling.value = true
+  try {
+    reconcile.value = await api.get('/admin/reconcile')
+  } catch (e) {
+    ElMessage.error(e.response?.data?.error || '对账失败')
+  } finally {
+    reconciling.value = false
+  }
+}
+
+const sendBroadcast = async () => {
+  if (!broadcastForm.title.trim() || !broadcastForm.content.trim()) {
+    return ElMessage.warning('请填写公告标题与内容')
+  }
+  broadcasting.value = true
+  try {
+    const res = await api.post('/admin/broadcast', { ...broadcastForm })
+    ElMessage.success(res.message || '公告已发送')
+    broadcastForm.title = ''
+    broadcastForm.content = ''
+  } catch (e) {
+    ElMessage.error(e.response?.data?.error || '发送失败')
+  } finally {
+    broadcasting.value = false
+  }
+}
 
 const fetchAll = async () => {
   try {
-    const [wd, dp, inv, cp, ap, pi, bk, st] = await Promise.all([
-      api.get('/admin/withdrawals'), api.get('/biz/disputes'), api.get('/biz/invoices'),
+    const [wd, dp, wi, inv, cp, ap, pi, bk, st] = await Promise.all([
+      api.get('/admin/withdrawals'), api.get('/biz/disputes'), api.get('/biz/warranties'),
+      api.get('/biz/invoices'),
       api.get('/admin/companies'), api.get('/admin/review-appeals'), api.get('/finance/platform-income'),
       api.get('/admin/backups'), api.get('/admin/settings')
     ])
     withdrawals.value = wd.items
     disputes.value = dp.items
+    warranties.value = wi.items
     invoices.value = inv.items
     companies.value = cp.items
     appeals.value = ap.items
@@ -330,3 +451,7 @@ const doBackup = async () => {
 
 onMounted(fetchAll)
 </script>
+
+<style scoped>
+.more-count { font-size: 12px; color: var(--ink-400); align-self: center; }
+</style>

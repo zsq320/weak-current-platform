@@ -17,6 +17,7 @@ const express = require('express');
 const db = require('../db');
 const { authMiddleware, requireRole } = require('../middleware/auth');
 const { logAudit } = require('../middleware/audit');
+const { notifyUserEmail } = require('../utils/notifyEmail');
 
 const router = express.Router();
 
@@ -78,13 +79,38 @@ router.post('/', authMiddleware, requireRole('engineer'), (req, res) => {
   );
 
   // 发送通知给项目所有者
-  db.prepare('INSERT INTO messages (from_user_id, to_user_id, title, content, type) VALUES (?, ?, ?, ?, ?)').run(
+  db.prepare('INSERT INTO messages (from_user_id, to_user_id, title, content, type, ref_type, ref_id) VALUES (?, ?, ?, ?, ?, ?, ?)').run(
     req.user.id, project.user_id, '新的投标',
-    `用户 ${req.user.username} 对您的工程「${project.title}」投标，报价 ${bidPrice} 元`, 'bid'
+    `用户 ${req.user.username} 对您的工程「${project.title}」投标，报价 ${bidPrice} 元`, 'bid', 'project', project.id
   );
 
   logAudit(req.user.id, 'submit_bid', 'bid', result.lastInsertRowid, `project:${project_id},price:${price}`, req.ip);
   res.json({ id: result.lastInsertRowid, message: '投标成功' });
+});
+
+// 撤回投标（仅本人、待定状态、工程仍在招标中；撤回后可重新投标）
+router.post('/:id/withdraw', authMiddleware, requireRole('engineer'), (req, res) => {
+  const bid = db.prepare(`
+    SELECT b.*, p.status as project_status, p.title, p.user_id as owner_id
+    FROM bids b JOIN projects p ON b.project_id = p.id
+    WHERE b.id = ?
+  `).get(Number(req.params.id));
+  if (!bid) return res.status(404).json({ error: '投标不存在' });
+  if (bid.engineer_id !== req.user.id) return res.status(403).json({ error: '只能撤回自己的投标' });
+  if (bid.status !== 'pending') return res.status(400).json({ error: '该投标已被处理，无法撤回' });
+  if (bid.project_status !== 'bidding') return res.status(400).json({ error: '工程已不在招标中，无法撤回' });
+
+  const withdrawTx = db.transaction(() => {
+    db.prepare('DELETE FROM bids WHERE id = ? AND engineer_id = ? AND status = ?').run(bid.id, req.user.id, 'pending');
+    db.prepare('INSERT INTO messages (from_user_id, to_user_id, title, content, type, ref_type, ref_id) VALUES (?, ?, ?, ?, ?, ?, ?)').run(
+      req.user.id, bid.owner_id, '投标已撤回',
+      `用户 ${req.user.username} 撤回了对工程「${bid.title}」的投标`, 'bid', 'project', bid.project_id
+    );
+  });
+  withdrawTx();
+
+  logAudit(req.user.id, 'withdraw_bid', 'bid', bid.id, `project:${bid.project_id}`, req.ip);
+  res.json({ message: '投标已撤回' });
 });
 
 // 获取我的投标（必须注册在 /:id 之前，否则会被动态路由拦截）
@@ -274,23 +300,25 @@ router.post('/:id/accept', authMiddleware, (req, res) => {
       .run(bid.project_id, Number(req.params.id), bid.owner_id, bid.engineer_id, bid.price);
 
     // 通知中标工程师
-    db.prepare('INSERT INTO messages (from_user_id, to_user_id, title, content, type) VALUES (?, ?, ?, ?, ?)').run(
+    db.prepare('INSERT INTO messages (from_user_id, to_user_id, title, content, type, ref_type, ref_id) VALUES (?, ?, ?, ?, ?, ?, ?)').run(
       req.user.id, bid.engineer_id, '投标已中标',
-      `恭喜！您对工程「${bid.title}」的投标已被接受，报价 ${bid.price} 元。合同已自动生成。`, 'bid'
+      `恭喜！您对工程「${bid.title}」的投标已被接受，报价 ${bid.price} 元。合同已自动生成。`, 'bid', 'project', bid.project_id
     );
 
     // 通知未中标工程师
     const rejectedBids = db.prepare('SELECT engineer_id FROM bids WHERE project_id = ? AND id != ? AND status = ?')
       .all(bid.project_id, Number(req.params.id), 'pending');
     rejectedBids.forEach(b => {
-      db.prepare('INSERT INTO messages (from_user_id, to_user_id, title, content, type) VALUES (?, ?, ?, ?, ?)').run(
+      db.prepare('INSERT INTO messages (from_user_id, to_user_id, title, content, type, ref_type, ref_id) VALUES (?, ?, ?, ?, ?, ?, ?)').run(
         req.user.id, b.engineer_id, '投标未中标',
-        `您对工程「${bid.title}」的投标未被选中`, 'bid'
+        `您对工程「${bid.title}」的投标未被选中`, 'bid', 'project', bid.project_id
       );
     });
   });
 
   acceptBid();
+  notifyUserEmail(bid.engineer_id, '投标已中标',
+    `您好，您对工程「${bid.title}」的投标已被接受，报价 ${bid.price} 元，合同已自动生成。请及时在合同管理中完成签署。`);
   logAudit(req.user.id, 'accept_bid', 'bid', Number(req.params.id), null, req.ip);
   res.json({ message: '已接受投标，合同已生成' });
 });
@@ -385,9 +413,9 @@ router.post('/:id/score', authMiddleware, (req, res) => {
       .run(total_score, req.user.id, Number(req.params.id));
 
     // 通知工程师
-    db.prepare('INSERT INTO messages (from_user_id, to_user_id, title, content, type) VALUES (?, ?, ?, ?, ?)').run(
+    db.prepare('INSERT INTO messages (from_user_id, to_user_id, title, content, type, ref_type, ref_id) VALUES (?, ?, ?, ?, ?, ?, ?)').run(
       req.user.id, bid.engineer_id, '投标已被评分',
-      `您对工程「${bid.title}」的投标已收到评分，总分 ${total_score} 分`, 'bid'
+      `您对工程「${bid.title}」的投标已收到评分，总分 ${total_score} 分`, 'bid', 'project', bid.project_id
     );
 
     logAudit(req.user.id, 'score_bid', 'bid', Number(req.params.id), { total_score }, req.ip);

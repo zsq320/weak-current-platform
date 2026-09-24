@@ -107,4 +107,25 @@ async function sendEmail(to, code, purpose = 'register') {
   }
 }
 
-module.exports = { sendEmail, getEmailTemplate, isEmailConfigured };
+// 发送通用业务通知邮件（不携带验证码模板）
+async function sendRawMail(to, subject, html) {
+  const mailOptions = {
+    from: {
+      name: '弱电工程管理平台',
+      address: process.env.SMTP_USER || 'noreply@example.com'
+    },
+    to,
+    subject,
+    html
+  };
+  try {
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`[Email] 业务通知已发送到 ${to}, messageId: ${info.messageId}`);
+    return { success: true, messageId: info.messageId };
+  } catch (error) {
+    console.error(`[Email] 业务通知发送失败 (${to}):`, error.message);
+    return { success: false, error: error.message };
+  }
+}
+
+module.exports = { sendEmail, sendRawMail, getEmailTemplate, isEmailConfigured };

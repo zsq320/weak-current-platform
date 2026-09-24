@@ -48,6 +48,22 @@
                 </h4>
                 <p>{{ project.description || '暂无描述' }}</p>
               </div>
+
+              <!-- 工程评价（完工后展示双方互评） -->
+              <div class="description" v-if="project.status === 'completed'">
+                <h4>工程评价</h4>
+                <div v-for="r in projectReviews" :key="r.id" class="project-review-item">
+                  <div class="review-meta">
+                    <span class="review-from">{{ r.from_real_name || r.from_username }}</span>
+                    <span class="review-arrow">评价</span>
+                    <span class="review-to">{{ r.to_real_name || r.to_username }}</span>
+                    <el-rate :model-value="r.rating" disabled size="small" />
+                    <span class="review-time">{{ r.created_at }}</span>
+                  </div>
+                  <p class="review-comment">{{ r.comment || '（未填写评语）' }}</p>
+                </div>
+                <el-empty v-if="projectReviews.length === 0" description="暂无评价" :image-size="50" />
+              </div>
             </el-card>
 
             <!-- 投标列表 -->
@@ -64,11 +80,17 @@
                     <el-button size="small" @click="toggleSortOrder">
                       {{ bidSortOrder === 'desc' ? '降序' : '升序' }}
                     </el-button>
+                    <el-button v-if="isOwner" size="small" @click="showRankings">评分排名</el-button>
+                    <el-button v-if="isOwner" size="small" type="primary" plain @click="exportBids" :loading="exporting">导出CSV</el-button>
                   </div>
                 </div>
               </template>
               <el-table :data="bids" style="width: 100%" @sort-change="handleSortChange">
-                <el-table-column prop="username" label="工程师" width="120" />
+                <el-table-column label="工程师" width="120">
+                  <template #default="{ row }">
+                    <el-link type="primary" @click="router.push(`/engineer/${row.engineer_id}`)">{{ row.username }}</el-link>
+                  </template>
+                </el-table-column>
                 <el-table-column prop="real_name" label="真实姓名" width="100">
                   <template #default="{ row }">
                     {{ row.real_name || '-' }}
@@ -465,6 +487,30 @@
       :project-id="project?.id"
       @success="fetchProject"
     />
+
+    <!-- 评分排名对话框 -->
+    <el-dialog v-model="rankingsVisible" title="投标评分排名" width="760px">
+      <el-table :data="rankings" size="small">
+        <el-table-column type="index" label="名次" width="60" />
+        <el-table-column label="工程师" width="110">
+          <template #default="{ row }">{{ row.real_name || row.username }}</template>
+        </el-table-column>
+        <el-table-column label="报价" width="100">
+          <template #default="{ row }">¥{{ row.price?.toLocaleString() }}</template>
+        </el-table-column>
+        <el-table-column prop="total_score" label="总分" width="65" />
+        <el-table-column prop="price_score" label="价格" width="60" />
+        <el-table-column prop="duration_score" label="工期" width="60" />
+        <el-table-column prop="qualification_score" label="资质" width="60" />
+        <el-table-column prop="technical_score" label="技术" width="60" />
+        <el-table-column label="评语" min-width="170" show-overflow-tooltip>
+          <template #default="{ row }">
+            {{ [row.price_comment, row.duration_comment, row.qualification_comment, row.technical_comment].filter(Boolean).join('；') || '-' }}
+          </template>
+        </el-table-column>
+      </el-table>
+      <el-empty v-if="rankings.length === 0" description="暂无评分数据" :image-size="60" />
+    </el-dialog>
   </div>
 </template>
 
@@ -666,8 +712,54 @@ const fetchProject = async () => {
         myContract.value = contracts.find(c => c.project_id === Number(route.params.id) && c.status === 'completed')
       } catch (e) {}
     }
+
+    // 完工后加载双方评价（公开接口）
+    if (res.status === 'completed') {
+      try {
+        const rr = await api.get(`/reviews/project/${route.params.id}`)
+        projectReviews.value = rr.items || []
+      } catch (e) {}
+    }
   } catch (e) {
     ElMessage.error('加载工程详情失败')
+  }
+}
+
+// ===== 评分排名与导出 =====
+const exporting = ref(false)
+const rankingsVisible = ref(false)
+const rankings = ref([])
+const projectReviews = ref([])
+
+const showRankings = async () => {
+  try {
+    const res = await api.get(`/bids/project/${route.params.id}/rankings`)
+    rankings.value = res || []
+    rankingsVisible.value = true
+  } catch (e) {
+    ElMessage.error(e.response?.data?.error || '获取评分排名失败')
+  }
+}
+
+const exportBids = async () => {
+  exporting.value = true
+  try {
+    // window.open 无法携带 Authorization，用 fetch + Blob 下载
+    const res = await fetch(`/api/bids/project/${route.params.id}/export`, {
+      headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` }
+    })
+    if (!res.ok) throw new Error('export failed')
+    const blob = await res.blob()
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `bid_scores_${route.params.id}_${Date.now()}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  } catch (e) {
+    ElMessage.error('导出失败（可能暂无投标数据）')
+  } finally {
+    exporting.value = false
   }
 }
 
@@ -1158,4 +1250,16 @@ onMounted(async () => {
   color: var(--danger-600);
   font-weight: 700;
 }
+
+.project-review-item {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+.project-review-item:last-child { border-bottom: none; }
+.review-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.review-from { font-weight: 600; color: var(--ink-900); }
+.review-to { color: var(--ink-900); }
+.review-arrow { color: var(--ink-400); font-size: 12px; }
+.review-time { font-size: 12px; color: var(--ink-400); }
+.review-comment { color: var(--ink-700); font-size: 13.5px; margin: 4px 0 0; }
 </style>

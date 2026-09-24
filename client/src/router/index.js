@@ -25,6 +25,7 @@ const routes = [
   { path: '/agreement/:type', name: 'Agreement', component: () => import('../views/AgreementView.vue') },
   { path: '/dashboard', name: 'Dashboard', component: () => import('../views/Dashboard.vue'), meta: { requiresAuth: true } },
   { path: '/admin', name: 'Admin', component: () => import('../views/Admin.vue'), meta: { requiresAuth: true, role: ['admin'] } },
+  { path: '/engineer/:id', name: 'EngineerProfile', component: () => import('../views/EngineerProfile.vue') },
   // 未匹配路径兜底，避免白屏
   { path: '/:pathMatch(.*)*', redirect: '/' }
 ]

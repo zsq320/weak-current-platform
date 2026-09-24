@@ -95,9 +95,10 @@
 
         <el-table-column prop="created_at" label="投标时间" width="160" />
 
-        <el-table-column label="操作" width="100" fixed="right">
+        <el-table-column label="操作" width="150" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link @click="viewDetail(row.project_id)">查看详情</el-button>
+            <el-button v-if="row.status === 'pending' && row.project_status === 'bidding'" type="warning" link @click="withdrawBid(row.id)">撤回</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -112,7 +113,7 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { CircleCheck, CircleClose } from '@element-plus/icons-vue'
 import api from '../api'
 import StatCard from '../components/ui/StatCard.vue'
@@ -181,6 +182,16 @@ const toggleOrder = () => {
 
 const viewDetail = (projectId) => {
   router.push(`/project/${projectId}`)
+}
+
+// 撤回待定投标（工程仍在招标中时可撤回并重新投标）
+const withdrawBid = async (bidId) => {
+  try {
+    await ElMessageBox.confirm('确定撤回此投标？撤回后该投标将被删除，您可以重新投标。', '撤回投标', { type: 'warning' })
+    await api.post(`/bids/${bidId}/withdraw`)
+    ElMessage.success('投标已撤回')
+    fetchBids()
+  } catch (e) { /* 取消或失败（失败提示由拦截器给出） */ }
 }
 
 const fetchBids = async () => {
